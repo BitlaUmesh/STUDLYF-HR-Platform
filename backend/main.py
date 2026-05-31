@@ -51,15 +51,11 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         return response
 
-app.add_middleware(SecurityHeadersMiddleware)
-
-# Configure CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://studlyf.vercel.app",
-        "https://*.vercel.app",
+        "https://studlyf-hr.vercel.app",  # your vercel URL
     ],
     allow_credentials=True,
     allow_methods=["*"],
