@@ -75,3 +75,11 @@ frontend/.env.local
 # Backend env
 
 backend/.env
+
+# backend node
+
+backend-node/.env
+backend-node/.env.local
+backend-node/.env.production
+backend-node/.env.development
+backend-node/node_modules
