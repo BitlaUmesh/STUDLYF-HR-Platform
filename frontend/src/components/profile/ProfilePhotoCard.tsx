@@ -2,14 +2,20 @@
 
 import React, { useRef } from 'react';
 import { useProfileStore } from '@/store/profileStore';
+import { API_URL } from '@/lib/api';
 import { Camera, Mail, Building, UserCircle2 } from 'lucide-react';
-import Image from 'next/image';
 
 export default function ProfilePhotoCard() {
   const { profile, uploadPhoto } = useProfileStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!profile) return null;
+
+  const profilePhotoUrl = profile.profilePhoto
+    ? profile.profilePhoto.startsWith('http')
+      ? profile.profilePhoto
+      : `${API_URL.replace(/\/$/, '')}${profile.profilePhoto}`
+    : null;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -28,8 +34,8 @@ export default function ProfilePhotoCard() {
         {/* Photo Upload Area */}
         <div className="relative w-28 h-28 mb-4">
           <div className="w-full h-full rounded-full border-4 border-white shadow-md overflow-hidden bg-slate-50 flex items-center justify-center">
-            {profile.profilePhoto ? (
-              <img src={profile.profilePhoto} alt="Profile" className="w-full h-full object-cover" />
+            {profilePhotoUrl ? (
+              <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
             ) : (
               <UserCircle2 className="w-16 h-16 text-slate-300" />
             )}

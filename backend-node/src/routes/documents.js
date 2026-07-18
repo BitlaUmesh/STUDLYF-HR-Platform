@@ -2,6 +2,7 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { z } = require('zod');
 const { authenticate } = require('../middleware/auth');
+const { sendDocumentEmail } = require('../services/email');
 
 const router = express.Router();
 const prisma = new PrismaClient();
@@ -9,9 +10,22 @@ const prisma = new PrismaClient();
 // All document routes require HR authentication
 router.use(authenticate);
 
+// Map shorthand or case-insensitive type values to canonical enum values
+const DOCUMENT_TYPE_MAP = {
+  OFFER_LETTER: 'OFFER_LETTER',
+  JOINING_LETTER: 'JOINING_LETTER',
+  OFFER: 'OFFER_LETTER',
+  JOINING: 'JOINING_LETTER',
+};
+
+function normalizeDocumentType(val) {
+  if (typeof val !== 'string') return val;
+  return DOCUMENT_TYPE_MAP[val.toUpperCase().replace(/[\s-]/g, '_')] || val;
+}
+
 const createSchema = z.object({
   title: z.string().optional(),
-  type: z.enum(['OFFER_LETTER', 'JOINING_LETTER']),
+  type: z.preprocess(normalizeDocumentType, z.enum(['OFFER_LETTER', 'JOINING_LETTER'])),
   status: z.string().optional(),
   template_id: z.string().optional(),
   candidateDetails: z.record(z.any()),
@@ -119,6 +133,39 @@ router.delete('/delete/:id', async (req, res, next) => {
 
     await prisma.document.delete({ where: { id: req.params.id } });
     return res.json({ message: 'Document deleted successfully' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+const sendSchema = z.object({
+  to_email: z.string().email(),
+  subject: z.string().min(1),
+  html_content: z.string().min(1),
+});
+
+// ── POST /api/documents/:id/send ─────────────────────────────────────────────
+router.post('/:id/send', async (req, res, next) => {
+  try {
+    const parsed = sendSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(422).json({ error: parsed.error.issues });
+    }
+
+    const doc = await prisma.document.findFirst({
+      where: { id: req.params.id, userId: req.hrId },
+    });
+    if (!doc) {
+      return res.status(404).json({ error: 'Document not found' });
+    }
+
+    await sendDocumentEmail({
+      to: parsed.data.to_email,
+      subject: parsed.data.subject,
+      htmlContent: parsed.data.html_content,
+    });
+
+    return res.status(200).json({ message: 'Email sent successfully!' });
   } catch (err) {
     next(err);
   }

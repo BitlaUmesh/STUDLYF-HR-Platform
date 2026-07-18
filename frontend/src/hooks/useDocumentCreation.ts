@@ -13,12 +13,14 @@ export function useDocumentCreation() {
       setIsCreating(true);
       resetState(); // Clear any previous state
 
-      // Create a blank draft in the backend
+      const documentType = type === 'offer' ? 'OFFER_LETTER' : 'JOINING_LETTER';
+
+      // Create a blank draft in the backend.
       const data = await fetchAPI('/api/documents/create', {
         method: 'POST',
         body: JSON.stringify({
           title: `Untitled ${type === 'offer' ? 'Offer' : 'Joining'} Letter`,
-          type: type,
+          type: documentType,
           status: 'draft',
           candidateDetails: {},
           contentJSON: { html: '' }

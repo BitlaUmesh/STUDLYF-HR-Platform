@@ -60,7 +60,7 @@ export default function DocumentBuilderPage() {
         const doc = await fetchAPI(`/api/documents/${documentId}`);
         
         setDocumentId(doc.id);
-        setDocumentType(doc.type);
+        setDocumentType(doc.type === 'JOINING_LETTER' ? 'joining' : 'offer');
         updateCandidateDetails(doc.candidateDetails);
         setContent(doc.contentJSON?.html || doc.contentJSON || "");
         // Optional: restore branding and templateConfig if they exist in DB later
@@ -92,7 +92,7 @@ export default function DocumentBuilderPage() {
               title: currentState.candidateDetails.candidateName 
                      ? `${currentState.documentType === 'offer' ? 'Offer' : 'Joining'} Letter - ${currentState.candidateDetails.candidateName}` 
                      : 'Untitled Document',
-              type: currentState.documentType,
+              type: currentState.documentType === 'offer' ? 'OFFER_LETTER' : 'JOINING_LETTER',
               status: "draft",
               candidateDetails: currentState.candidateDetails,
               contentJSON: { html: currentState.content },

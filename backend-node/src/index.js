@@ -2,6 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
+const path = require('path');
 
 const authRoutes = require('./routes/auth');
 const documentsRoutes = require('./routes/documents');
@@ -14,6 +15,9 @@ const meetingsRoutes = require('./routes/meetings');
 const messagesRoutes = require('./routes/messages');
 
 const app = express();
+const allowedOrigins = new Set(
+  ['http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean)
+);
 
 // ── Security Headers Middleware ───────────────────────────────────────────────
 app.use((req, res, next) => {
@@ -34,10 +38,14 @@ app.use((req, res, next) => {
 // ── CORS ──────────────────────────────────────────────────────────────────────
 app.use(
   cors({
-    origin: [
-      'http://localhost:3000',
-      process.env.FRONTEND_URL,
-    ].filter(Boolean),
+    origin(origin, callback) {
+      if (!origin || allowedOrigins.has(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS origin not allowed: ${origin}`));
+    },
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
@@ -50,7 +58,7 @@ app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
 
 // ── Static file serving (profile uploads) ────────────────────────────────────
-app.use('/api/uploads', express.static('uploads'));
+app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ── Health Check ──────────────────────────────────────────────────────────────
 app.get('/health', (req, res) => {
@@ -76,7 +84,8 @@ app.use((req, res) => {
 // ── Global Error Handler ──────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
-  const status = err.status || err.statusCode || 500;
+  const status = err.status || err.statusCode ||
+    (err.code === 'LIMIT_FILE_SIZE' ? 413 : err.name === 'MulterError' ? 400 : 500);
   res.status(status).json({
     error: err.message || 'Internal Server Error',
     ...(process.env.ENVIRONMENT !== 'production' && { stack: err.stack }),

@@ -100,9 +100,19 @@ async function sendApplicationStatusUpdate({ to, companyName, status }) {
   });
 }
 
+async function sendDocumentEmail({ to, subject, htmlContent }) {
+  await transporter.sendMail({
+    from: process.env.SMTP_FROM,
+    to,
+    subject,
+    html: htmlContent,
+  });
+}
+
 module.exports = {
   sendMeetingInvite,
   sendMeetingCancellation,
   sendMessageNotification,
   sendApplicationStatusUpdate,
+  sendDocumentEmail,
 };

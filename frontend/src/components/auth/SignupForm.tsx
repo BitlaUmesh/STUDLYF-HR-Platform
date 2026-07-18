@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { fetchAPI } from "@/lib/api";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -39,34 +40,28 @@ export default function SignupForm() {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_URL}/api/auth/signup`, {
+      await fetchAPI("/api/auth/signup", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           fullName: formData.fullName,
           companyName: formData.companyName,
           email: formData.email,
-          password: formData.password
+          password: formData.password,
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Signup failed");
-      }
-
-      // Auto login
-      await fetch(`${API_URL}/api/auth/login`, {
+      // Auto login; fetchAPI includes credentials for the auth cookies.
+      await fetchAPI("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
-        credentials: "include",
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+        }),
       });
 
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Signup failed");
     } finally {
       setLoading(false);
     }

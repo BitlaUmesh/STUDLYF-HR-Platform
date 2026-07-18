@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff } from "lucide-react";
+import { fetchAPI } from "@/lib/api";
 
 export default function LoginForm() {
   const router = useRouter();
@@ -20,22 +21,14 @@ export default function LoginForm() {
     setError("");
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const res = await fetch(`${API_URL}/api/auth/login`, {
+      await fetchAPI("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email, password }),
-        credentials: "include",
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Invalid credentials");
-      }
-
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Invalid credentials");
     } finally {
       setLoading(false);
     }

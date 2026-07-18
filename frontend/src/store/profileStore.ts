@@ -51,7 +51,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   fetchProfile: async () => {
     try {
       set({ isLoading: true });
-      const data = await fetchAPI('/api/profile/me');
+      const data = await fetchAPI('/api/profile/');
       set({ profile: data, draftProfile: {}, hasUnsavedChanges: false, isLoading: false, saveStatus: 'idle' });
     } catch (error) {
       console.error('Failed to fetch profile', error);
@@ -73,8 +73,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
     try {
       set({ saveStatus: 'saving' });
-      const updatedData = await fetchAPI('/api/profile/update', {
-        method: 'POST',
+      const updatedData = await fetchAPI('/api/profile/', {
+        method: 'PUT',
         body: JSON.stringify(draftProfile)
       });
       set({ profile: updatedData, draftProfile: {}, hasUnsavedChanges: false, saveStatus: 'success' });
