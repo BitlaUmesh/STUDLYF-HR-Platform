@@ -1,0 +1,106 @@
+// User / Student Side Database Models
+
+model Student {
+  id           String  @id @default(uuid())
+  name         String
+  email        String  @unique
+  bio          String?
+  skills       String[] // ["AIML", "Frontend", "Python"]
+  avatarUrl    String?
+  linkedinUrl  String?
+  portfolioUrl String?
+
+  // GitHub OAuth
+  githubUsername    String? @unique
+  githubId          String? @unique  // GitHub's numeric user ID
+  githubAccessToken String? // stored encrypted — used for API calls
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  githubStats   GitHubStats?
+  projects      HackathonProject[]
+  applications  Application[]
+  receivedMessages Message[] @relation("StudentReceivedMessages")
+}
+
+model GitHubStats {
+  id            String   @id @default(uuid())
+  studentId     String   @unique
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Stored as JSON: { "TypeScript": 45.2, "Python": 30.1, "Rust": 15.0 } (percentages)
+  topLanguages  Json     @default("{}")
+  totalRepos    Int      @default(0)
+  totalStars    Int      @default(0)
+  totalCommits  Int      @default(0)
+  totalForks    Int      @default(0)
+
+  lastSyncedAt  DateTime @default(now())
+}
+
+model HackathonProject {
+  id            String   @id @default(uuid())
+  studentId     String
+  student       Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  name          String
+  description   String?
+  hackathonName String?
+  tags          String[] // ["AIML", "Web3", "IoT", "HealthTech"]
+  juryRating    Float?   // 0.0 – 10.0 scale from jury
+  repoUrl       String?
+  demoUrl       String?
+  imageUrl      String?
+
+  createdAt DateTime @default(now())
+
+  @@index([studentId])
+}
+
+model Application {
+  id        String  @id @default(uuid())
+  hrId      String
+  hr        User    @relation(fields: [hrId], references: [id], onDelete: Cascade)
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Status flow: invited → reviewing → questions_sent → offered | rejected
+  status    String  @default("invited")
+  notes     String? // internal HR notes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  responses ScreeningResponse[]
+  meeting   Meeting?
+
+  @@unique([hrId, studentId]) // HR can only have one application per student
+  @@index([hrId])
+  @@index([studentId])
+}
+
+model ScreeningResponse {
+  id            String            @id @default(uuid())
+  applicationId String
+  application   Application       @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  questionId    String
+  question      ScreeningQuestion @relation(fields: [questionId], references: [id], onDelete: Cascade)
+  answer        String?
+  submittedAt   DateTime          @default(now())
+}
+
+model Message {
+  id         String   @id @default(uuid())
+  hrId       String
+  hr         User     @relation("HRSentMessages", fields: [hrId], references: [id], onDelete: Cascade)
+  studentId  String
+  student    Student  @relation("StudentReceivedMessages", fields: [studentId], references: [id], onDelete: Cascade)
+  content    String
+  isRead     Boolean  @default(false)
+  sentAt     DateTime @default(now())
+
+  @@index([hrId, studentId])
+}

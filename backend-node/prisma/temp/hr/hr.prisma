@@ -1,0 +1,168 @@
+// HR Side Database Models
+
+model User {
+  id             String   @id @default(uuid())
+  fullName       String
+  email          String   @unique
+  hashedPassword String
+  companyName    String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  // Personal profile
+  profilePhoto String?
+  phone        String?
+  address      String?
+  city         String?
+  state        String?
+  country      String?
+  designation  String?
+
+  // Company info
+  companyAddress  String?
+  companyPhone    String?
+  companyEmail    String?
+  companyWebsite  String?
+
+  // Document preferences
+  defaultFont          String @default("Times New Roman")
+  defaultBorderColor   String @default("#2D136F")
+  defaultLineSpacing   String @default("1.25")
+  defaultLetterSpacing String @default("0px")
+
+  // Relations
+  branding          CompanyBranding?
+  documents         Document[]
+  recentEdits       RecentEdit[]
+  applications      Application[]
+  screeningQuestions ScreeningQuestion[]
+  meetings          Meeting[]
+  sentMessages      Message[]           @relation("HRSentMessages")
+
+  @@map("users")
+}
+
+model CompanyBranding {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  logoUrl       String?
+  primaryColor  String   @default("#2D136F")
+  secondaryColor String  @default("#5D22D8")
+  letterheadUrl String?
+  signatureUrl  String?
+  sealUrl       String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  documents     Document[]
+
+  @@map("company_branding")
+}
+
+model Template {
+  id           String   @id @default(uuid())
+  name         String
+  type         String   // "OFFER_LETTER" | "JOINING_LETTER"
+  baseJSON     Json
+  isReusable   Boolean  @default(false)
+  thumbnailUrl String?
+  isPremium    Boolean  @default(false)
+  layoutType   String?
+  createdAt    DateTime @default(now())
+
+  documents Document[]
+
+  @@map("templates")
+}
+
+model Document {
+  id         String   @id @default(uuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type       String   // "OFFER_LETTER" | "JOINING_LETTER"
+  title      String?
+  status     String   @default("draft") // "draft" | "completed" | "exported" | "archived"
+
+  lastOpenedAt DateTime @default(now()) @map("last_opened_at")
+  exportCount  Int      @default(0) @map("export_count")
+
+  templateId       String?   @map("template_id")
+  template         Template?  @relation(fields: [templateId], references: [id])
+  candidateDetails Json
+  contentJSON      Json
+  brandingId       String?
+  branding         CompanyBranding? @relation(fields: [brandingId], references: [id])
+  exportUrl        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  recentEdits RecentEdit[]
+  emailLogs   EmailLog[]
+
+  @@index([userId])
+  @@map("documents")
+}
+
+model RecentEdit {
+  id           String   @id @default(uuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documentId   String
+  document     Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  lastEditedAt DateTime @default(now())
+
+  @@index([userId])
+  @@map("recent_edits")
+}
+
+model EmailLog {
+  id             String   @id @default(uuid())
+  documentId     String
+  document       Document @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  recipientEmail String
+  status         String   // "SENT" | "FAILED" | "PENDING"
+  sentAt         DateTime @default(now())
+
+  @@map("email_logs")
+}
+
+model ScreeningQuestion {
+  id         String  @id @default(uuid())
+  hrId       String
+  hr         User    @relation(fields: [hrId], references: [id], onDelete: Cascade)
+  question   String
+  isTemplate Boolean @default(false) // save for reuse across multiple applications
+
+  createdAt DateTime @default(now())
+
+  responses ScreeningResponse[]
+
+  @@index([hrId])
+}
+
+model Meeting {
+  id            String  @id @default(uuid())
+  hrId          String
+  hr            User    @relation(fields: [hrId], references: [id], onDelete: Cascade)
+  applicationId String? @unique
+  application   Application? @relation(fields: [applicationId], references: [id])
+
+  title             String
+  description       String?
+  scheduledAt       DateTime?
+
+  // Calendly data
+  calendlyEventUrl  String?  // booking link sent to student
+  calendlyEventId   String?  // Calendly's internal event URI (for webhook matching)
+  calendlyInviteeUri String? // Calendly's invitee URI after booking confirmed
+
+  // "scheduled" | "confirmed" | "completed" | "cancelled"
+  status        String   @default("scheduled")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([hrId])
+}
