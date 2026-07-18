@@ -4,7 +4,7 @@ import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, FileText, Layers, Palette, Clock, Settings, X, UserCircle } from "lucide-react";
+import { LayoutDashboard, FileText, Layers, Palette, Clock, Settings, X, UserCircle, Users, KanbanSquare } from "lucide-react";
 import { motion } from "framer-motion";
 import { useUiStore } from "@/store/uiStore";
 
@@ -20,6 +20,8 @@ export default function DashboardSidebar() {
   const navigation = [
     { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
     { name: "Documents", href: "/dashboard/documents", icon: FileText },
+    { name: "Find Students", href: "/dashboard/students", icon: Users },
+    { name: "Pipeline", href: "/dashboard/pipeline", icon: KanbanSquare },
     { name: "Templates", href: "/dashboard/templates", icon: Layers },
     { name: "Recent Edits", href: "/dashboard/recent", icon: Clock },
   ];
