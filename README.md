@@ -8,54 +8,61 @@ A modern, high-fidelity HR SaaS dashboard designed for talent discovery, screeni
 
 ### 1. Talent Search & Discovery
 * **Keyword Matching**: Search and filter students by custom keywords (e.g. `AIML`, `Frontend`, `React`, `Python`) in real-time.
-* **GitHub Analytics**: Visual language-focus share charts, commit counts, and repository metrics.
+* **GitHub Analytics**: A proportional "language fingerprint" bar built from each student's real GitHub language mix, plus repo/star/fork counts.
 * **Hackathon Records**: Details of jury-rated student prototypes, jury scores, and evaluator feedback comments.
+* **Leaderboard**: Students ranked by jury ratings, GitHub activity, project count, and profile completeness.
 
 ### 2. Kanban Hiring Pipeline
-* **Trello-style Stage Board**: Track invited candidates dynamically through pipeline columns: **Invited**, **Reviewing**, **Questions Sent**, **Offered**, and **Rejected**.
-* **Interview Scheduler**: Built-in calendar scheduler form with date/time pickers and meeting mode configuration (Google Meet, Zoom).
+* **Drag-and-drop stage board**: Track invited candidates through pipeline columns: **Invited**, **Reviewing**, **Questions Sent**, **Offered**, and **Rejected**.
+* **Interview Scheduler**: Schedule meetings tied to an application; syncs with the backend's Calendly integration.
 * **Questionnaire Builder**: Create, assign, and track screening questionnaires for individual applicants.
-* **Chat Logs**: Real-time communication logs to send direct messages to candidates.
+* **Direct Messaging**: Per-candidate conversation threads.
 
 ### 3. Automated Document Generation
-* **Direct Pre-fill integration**: Automatically generate candidate offer or joining letters pre-filled with name, email, phone, designation, and custom interview answers directly inside the document builder workspace.
+* Offer/joining letter editor pre-filled with candidate name, email, designation, start date, and salary, with a live preview and print/export.
 
 ---
 
 ## 🛠️ Tech Stack & Architecture
 
-* **Frontend**: Next.js (App Router), React, TailwindCSS, Lucide Icons, Framer Motion, Zustand.
+* **Frontend**: Vite, React, TypeScript, Tailwind CSS v4, React Router, Zustand, Axios, Recharts, lucide-react.
 * **Backend Systems**:
-  - FastAPI: Handles core document template builders and editor drafts.
-  - Node.js & Prisma (Separate service): Manages student searches and hiring pipeline structures.
-* **Resilient API Design**: Supported with automatic offline mock fallbacks. If the Node database server on port `3001` is offline, the frontend falls back seamlessly to rendering cached/mock student details so evaluation remains fully functional.
+  - **Node.js + Express + Prisma** (`backend-node`, port `3001`) — the current, active backend. Handles auth, student search/leaderboard, applications/pipeline, screening questions, meetings, messages, documents, and profile/branding.
+  - **FastAPI** (`backend`) — an earlier implementation of documents/profile/dashboard/auth, superseded by the Node/Prisma service (see comments in `backend-node/prisma/schema.prisma`). Kept for reference; not used by the current frontend.
+* The frontend talks directly to the live Node API — there is no mock/offline fallback mode.
 
 ---
 
 ## 💻 Local Setup & Running
 
 ### Prerequisites
-Make sure you have **Node.js (v18+)** installed.
+Node.js (v18+), and a Postgres database for Prisma.
 
-### Installation
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Run the Next.js development server:
-   ```bash
-   npm run dev
-   ```
-4. Open your browser and navigate to:
-   * Main Search Dashboard: [http://localhost:3000/dashboard/students](http://localhost:3000/dashboard/students)
-   * Kanban Hiring Pipeline: [http://localhost:3000/dashboard/pipeline](http://localhost:3000/dashboard/pipeline)
+### Backend
+```bash
+cd backend-node
+npm install
+npx prisma generate
+# configure .env: DATABASE_URL, JWT_SECRET, JWT_REFRESH_SECRET, FRONTEND_URL=http://localhost:3000
+npm run dev   # http://localhost:3001
+```
 
----
+### Frontend
+```bash
+cd frontend
+cp .env.example .env   # VITE_API_BASE_URL=http://localhost:3001/api
+npm install
+npm run dev   # http://localhost:3000
+```
 
-## 📂 Git Repository Sync
-This repository contains the complete feature suite built, tested, and pushed to:
-`https://github.com/Sainitesh10/studlyf-hr`
+Then open [http://localhost:3000](http://localhost:3000) — you'll land on `/login`, and after signing up/in, be routed to:
+* Dashboard: `/dashboard`
+* Talent Search: `/students`
+* Leaderboard: `/leaderboard`
+* Hiring Pipeline: `/pipeline`
+* Letters: `/documents`
+* Meetings: `/meetings`
+* Messages: `/messages`
+* Settings: `/settings`
+
+See `frontend/README.md` for full frontend-specific details and known gaps.

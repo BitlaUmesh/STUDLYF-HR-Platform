@@ -42,8 +42,10 @@ router.get('/', async (req, res, next) => {
       orderBy: { updatedAt: 'desc' },
       include: {
         student: {
-          select: { id: true, name: true, email: true, skills: true, avatarUrl: true, githubUsername: true },
-          include: { githubStats: true },
+          select: {
+            id: true, name: true, email: true, skills: true, avatarUrl: true, githubUsername: true,
+            githubStats: true,
+          },
         },
         meeting: { select: { id: true, status: true, scheduledAt: true, calendlyEventUrl: true } },
       },

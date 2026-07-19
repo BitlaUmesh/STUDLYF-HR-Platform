@@ -1,42 +1,69 @@
-import { create } from 'zustand'
-import { fetchAPI } from '@/lib/api'
-
-interface User {
-  id: string
-  email: string
-  fullName: string
-  companyName: string
-}
+import { create } from 'zustand';
+import { authApi, type HRUser } from '../api/auth';
 
 interface AuthState {
-  user: User | null
-  isLoading: boolean
-  isAuthenticated: boolean
-  checkAuth: () => Promise<void>
-  logout: () => Promise<void>
+  user: HRUser | null;
+  status: 'idle' | 'loading' | 'authenticated' | 'unauthenticated';
+  error: string | null;
+  init: () => Promise<void>;
+  login: (email: string, password: string) => Promise<void>;
+  signup: (payload: { fullName: string; email: string; password: string; companyName: string }) => Promise<void>;
+  logout: () => Promise<void>;
+  setUser: (user: HRUser | null) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
-  isLoading: true,
-  isAuthenticated: false,
-  
-  checkAuth: async () => {
+  status: 'idle',
+  error: null,
+
+  init: async () => {
+    set({ status: 'loading' });
     try {
-      set({ isLoading: true })
-      const data = await fetchAPI('/api/auth/me')
-      set({ user: data, isAuthenticated: true, isLoading: false })
-    } catch (error) {
-      set({ user: null, isAuthenticated: false, isLoading: false })
+      const { data } = await authApi.me();
+      set({ user: data, status: 'authenticated', error: null });
+    } catch {
+      set({ user: null, status: 'unauthenticated' });
     }
   },
-  
+
+  login: async (email, password) => {
+    set({ status: 'loading', error: null });
+    try {
+      await authApi.login({ email, password });
+      const { data } = await authApi.me();
+      set({ user: data, status: 'authenticated' });
+    } catch (err: any) {
+      set({ status: 'unauthenticated', error: err?.response?.data?.error || 'Login failed' });
+      throw err;
+    }
+  },
+
+  signup: async (payload) => {
+    set({ status: 'loading', error: null });
+    try {
+      await authApi.signup(payload);
+      await authApi.login({ email: payload.email, password: payload.password });
+      const { data } = await authApi.me();
+      set({ user: data, status: 'authenticated' });
+    } catch (err: any) {
+      set({ status: 'unauthenticated', error: err?.response?.data?.error || 'Signup failed' });
+      throw err;
+    }
+  },
+
   logout: async () => {
     try {
-      await fetchAPI('/api/auth/logout', { method: 'POST' })
-      set({ user: null, isAuthenticated: false })
-    } catch (error) {
-      console.error('Logout failed', error)
+      await authApi.logout();
+    } finally {
+      set({ user: null, status: 'unauthenticated' });
     }
-  }
-}))
+  },
+
+  setUser: (user) => set({ user }),
+}));
+
+// Global listener: if the API client's refresh flow fails, force logout state.
+window.addEventListener('auth:logout', () => {
+  useAuthStore.setState({ user: null, status: 'unauthenticated' });
+});

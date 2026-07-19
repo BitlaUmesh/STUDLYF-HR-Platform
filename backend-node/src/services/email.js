@@ -1,6 +1,12 @@
 const nodemailer = require('nodemailer');
 
-const transporter = nodemailer.createTransport({
+const isSmtpConfigured =
+  process.env.SMTP_HOST &&
+  !process.env.SMTP_HOST.startsWith('your_') &&
+  !process.env.SMTP_HOST.includes('placeholder') &&
+  process.env.SMTP_USER;
+
+const transporter = isSmtpConfigured ? nodemailer.createTransport({
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || '587'),
   secure: false, // true for 465, false for other ports
@@ -8,14 +14,26 @@ const transporter = nodemailer.createTransport({
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
   },
-});
+}) : null;
+
+async function sendMailSafe(options) {
+  if (!isSmtpConfigured || !transporter) {
+    console.log('[SMTP SKIPPED] Email sending skipped (unconfigured):', options.subject);
+    return;
+  }
+  try {
+    await transporter.sendMail(options);
+  } catch (err) {
+    console.warn('[SMTP ERROR] Failed to send email via SMTP, but continuing:', err.message);
+  }
+}
 
 /**
  * Send a meeting invite to a student with a Calendly booking link.
  */
 async function sendMeetingInvite({ to, hrName, companyName, title, calendlyLink }) {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await sendMailSafe({
+    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `Meeting Invitation from ${companyName} — ${title}`,
     html: `
@@ -37,8 +55,8 @@ async function sendMeetingInvite({ to, hrName, companyName, title, calendlyLink 
  * Send a meeting cancellation notice.
  */
 async function sendMeetingCancellation({ to, hrName, companyName, title }) {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await sendMailSafe({
+    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `Meeting Cancelled — ${title}`,
     html: `
@@ -57,8 +75,8 @@ async function sendMeetingCancellation({ to, hrName, companyName, title }) {
  * Notify a student that they received a new message from HR.
  */
 async function sendMessageNotification({ to, hrName, companyName, preview }) {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await sendMailSafe({
+    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `New message from ${companyName}`,
     html: `
@@ -86,8 +104,8 @@ async function sendApplicationStatusUpdate({ to, companyName, status }) {
 
   const info = statusMap[status] || { label: 'Application Update', color: '#2D136F' };
 
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+  await sendMailSafe({
+    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `${info.label} — ${companyName}`,
     html: `

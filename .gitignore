@@ -19,11 +19,6 @@ env/
 .env.production
 .env.development
 
-# Next.js
-
-.next/
-out/
-
 # Logs
 
 *.log
