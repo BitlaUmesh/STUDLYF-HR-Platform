@@ -1,28 +1,29 @@
 import { create } from 'zustand';
-import { fetchAPI } from '@/lib/api';
+import { profileApi } from '../api/profile';
+import { apiClient } from '../api/client';
 
 export interface ProfileData {
   id: string;
   fullName: string;
   email: string;
-  profilePhoto: string | null;
-  phone: string | null;
-  address: string | null;
-  city: string | null;
-  state: string | null;
-  country: string | null;
-  designation: string | null;
+  profilePhoto?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  country?: string | null;
+  designation?: string | null;
   
   companyName: string;
-  companyAddress: string | null;
-  companyPhone: string | null;
-  companyEmail: string | null;
-  companyWebsite: string | null;
+  companyAddress?: string | null;
+  companyPhone?: string | null;
+  companyEmail?: string | null;
+  companyWebsite?: string | null;
   
-  defaultFont: string;
-  defaultBorderColor: string;
-  defaultLineSpacing: string;
-  defaultLetterSpacing: string;
+  defaultFont?: string;
+  defaultBorderColor?: string;
+  defaultLineSpacing?: string;
+  defaultLetterSpacing?: string;
 }
 
 interface ProfileState {
@@ -51,7 +52,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
   fetchProfile: async () => {
     try {
       set({ isLoading: true });
-      const data = await fetchAPI('/api/profile/');
+      const { data } = await profileApi.get();
       set({ profile: data, draftProfile: {}, hasUnsavedChanges: false, isLoading: false, saveStatus: 'idle' });
     } catch (error) {
       console.error('Failed to fetch profile', error);
@@ -73,11 +74,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
 
     try {
       set({ saveStatus: 'saving' });
-      const updatedData = await fetchAPI('/api/profile/', {
-        method: 'PUT',
-        body: JSON.stringify(draftProfile)
-      });
-      set({ profile: updatedData, draftProfile: {}, hasUnsavedChanges: false, saveStatus: 'success' });
+      const { data } = await profileApi.update(draftProfile);
+      set({ profile: data, draftProfile: {}, hasUnsavedChanges: false, saveStatus: 'success' });
       
       setTimeout(() => {
         set({ saveStatus: 'idle' });
@@ -106,9 +104,8 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
       const formData = new FormData();
       formData.append("file", file);
       
-      await fetchAPI('/api/profile/upload-photo', {
-        method: 'POST',
-        body: formData
+      await apiClient.post('/profile/upload-photo', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       get().fetchProfile();
     } catch (error) {
@@ -117,7 +114,7 @@ export const useProfileStore = create<ProfileState>((set, get) => ({
     }
   },
 
-  uploadCompanyLogo: async (file: File) => {
+  uploadCompanyLogo: async () => {
     // Empty
   }
 }));

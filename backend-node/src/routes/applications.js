@@ -43,7 +43,7 @@ router.get('/', async (req, res, next) => {
       include: {
         student: {
           select: {
-            id: true, name: true, email: true, skills: true, avatarUrl: true, githubUsername: true,
+            id: true, name: true, email: true, bio: true, skills: true, avatarUrl: true, githubUsername: true,
             githubStats: true,
           },
         },

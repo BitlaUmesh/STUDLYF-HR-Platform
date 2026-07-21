@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { Search, X } from 'lucide-react';
 import { studentsApi, type StudentSearchResult } from '../api/students';
 import { StudentCard } from '../components/students/StudentCard';
@@ -14,16 +14,41 @@ export function StudentSearchPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  async function fetchCandidates(kwList: string[]) {
+    setLoading(true);
+    setError(null);
+    try {
+      const queryStr = kwList.join(',');
+      const { data } = await studentsApi.search(queryStr);
+      setResults(data.results);
+    } catch (err) {
+      setError(getErrorMessage(err, 'Search failed'));
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  // Load all candidates on initial mount
+  useEffect(() => {
+    fetchCandidates([]);
+  }, []);
+
   function addKeyword(kw: string) {
     const clean = kw.trim();
     if (clean && !keywords.includes(clean)) {
-      setKeywords((k) => [...k, clean]);
+      const nextKw = [...keywords, clean];
+      setKeywords(nextKw);
+      setInputValue('');
+      fetchCandidates(nextKw);
+    } else {
+      setInputValue('');
     }
-    setInputValue('');
   }
 
   function removeKeyword(kw: string) {
-    setKeywords((k) => k.filter((x) => x !== kw));
+    const nextKw = keywords.filter((x) => x !== kw);
+    setKeywords(nextKw);
+    fetchCandidates(nextKw);
   }
 
   function handleInputKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
@@ -36,39 +61,30 @@ export function StudentSearchPage() {
   async function handleSearch(e: FormEvent) {
     e.preventDefault();
     const finalKeywords = inputValue.trim() ? [...keywords, inputValue.trim()] : keywords;
-    if (!finalKeywords.length) return;
-
-    setLoading(true);
-    setError(null);
-    try {
-      const { data } = await studentsApi.search(finalKeywords.join(','));
-      setResults(data.results);
+    if (inputValue.trim() && !keywords.includes(inputValue.trim())) {
       setKeywords(finalKeywords);
-      setInputValue('');
-    } catch (err) {
-      setError(getErrorMessage(err, 'Search failed'));
-    } finally {
-      setLoading(false);
     }
+    setInputValue('');
+    fetchCandidates(finalKeywords);
   }
 
   return (
-    <div>
+    <div className="space-y-6">
       <PageHeader
         title="Talent Search"
-        subtitle="Search students by skill, GitHub language, or hackathon project tag."
+        subtitle="Browse all available talent candidates or filter by skill, GitHub language, and hackathon project tag."
       />
 
       <form onSubmit={handleSearch} className="mb-6">
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-[var(--color-line-strong)] bg-white p-2 focus-within:ring-2 focus-within:ring-[var(--color-primary-tint)]">
-          <Search size={16} className="ml-2 shrink-0 text-[var(--color-text-muted)]" />
+        <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-slate-200 bg-white p-2.5 shadow-xs focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+          <Search size={18} className="ml-2 shrink-0 text-slate-400" />
           {keywords.map((kw) => (
             <span
               key={kw}
-              className="flex items-center gap-1 rounded-md bg-[var(--color-primary-tint)] px-2 py-1 text-sm font-medium text-[var(--color-primary)]"
+              className="flex items-center gap-1 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-bold text-primary border border-primary/20"
             >
               {kw}
-              <button type="button" onClick={() => removeKeyword(kw)} className="hover:text-[var(--color-signal-rejected)]">
+              <button type="button" onClick={() => removeKeyword(kw)} className="hover:text-rose-600 transition-colors">
                 <X size={13} />
               </button>
             </span>
@@ -77,49 +93,51 @@ export function StudentSearchPage() {
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder={keywords.length ? 'Add another keyword…' : 'e.g. AIML, Frontend, React'}
-            className="min-w-[160px] flex-1 border-none bg-transparent px-1 py-1 text-sm outline-none"
+            placeholder={keywords.length ? 'Filter by another keyword…' : 'Filter candidates (e.g. AIML, Frontend, React)'}
+            className="min-w-[180px] flex-1 border-none bg-transparent px-2 py-1 text-xs font-medium text-slate-900 placeholder:text-slate-400 outline-none"
           />
-          <Button type="submit" size="sm" disabled={loading}>
-            {loading ? 'Searching…' : 'Search'}
+          <Button type="submit" size="sm" disabled={loading} className="rounded-xl font-bold">
+            {loading ? 'Searching…' : 'Filter Candidates'}
           </Button>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          <span className="text-xs text-[var(--color-text-muted)]">Try:</span>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-bold text-slate-400">Popular Skills:</span>
           {SUGGESTED_KEYWORDS.map((kw) => (
             <button
               key={kw}
               type="button"
               onClick={() => addKeyword(kw)}
-              className="rounded-md border border-[var(--color-line)] px-2 py-0.5 text-xs text-[var(--color-text-muted)] hover:border-[var(--color-primary-vivid)] hover:text-[var(--color-primary-vivid)]"
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1 text-xs font-semibold text-slate-600 hover:border-primary hover:text-primary hover:bg-primary/5 transition-all shadow-2xs"
             >
-              {kw}
+              + {kw}
             </button>
           ))}
         </div>
       </form>
 
-      {error && <p className="mb-4 text-sm text-[var(--color-signal-rejected)]">{error}</p>}
+      {error && <p className="mb-4 text-xs font-semibold text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200">{error}</p>}
 
-      {results === null ? (
-        <EmptyState
-          title="Search for your next hire"
-          description="Add one or more keywords above — matching students are ranked by skill overlap, GitHub language match, and hackathon project tags."
-        />
-      ) : results.length === 0 ? (
-        <EmptyState title="No matches" description="Try broader or different keywords." />
+      {loading && results === null ? (
+        <div className="flex h-32 items-center justify-center">
+          <p className="text-sm font-semibold text-slate-400">Loading talent pool...</p>
+        </div>
+      ) : results === null || results.length === 0 ? (
+        <EmptyState title="No candidates found" description="Try broadening or clearing your keyword filters." />
       ) : (
-        <>
-          <p className="mb-4 text-sm text-[var(--color-text-muted)]">
-            {results.length} student{results.length === 1 ? '' : 's'} matched
-          </p>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">
+              {keywords.length ? `Filtered Candidates (${results.length})` : `All Candidates in Talent Pool (${results.length})`}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
             {results.map((student) => (
-              <StudentCard key={student.id} student={student} scoreLabel="Match" />
+              <StudentCard key={student.id} student={student} scoreLabel="Leaderboard Rank" />
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   );

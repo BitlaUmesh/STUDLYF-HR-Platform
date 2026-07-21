@@ -39,7 +39,7 @@ app.use((req, res, next) => {
 app.use(
   cors({
     origin(origin, callback) {
-      if (!origin || allowedOrigins.has(origin)) {
+      if (!origin || allowedOrigins.has(origin) || origin.endsWith('.ngrok-free.dev') || origin.endsWith('.ngrok.app')) {
         callback(null, true);
         return;
       }

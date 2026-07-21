@@ -46,6 +46,8 @@ export const profileApi = {
   update: (payload: Partial<FullProfile>) => apiClient.put<FullProfile>('/profile', payload),
   updateBranding: (payload: Partial<CompanyBranding>) =>
     apiClient.put<CompanyBranding>('/profile/branding', payload),
+  changePassword: (payload: { currentPassword: string; newPassword: string }) =>
+    apiClient.post<{ message: string }>('/auth/change-password', payload),
 };
 
 export const dashboardApi = {

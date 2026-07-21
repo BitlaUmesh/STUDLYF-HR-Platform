@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useRef } from 'react';
-import { useProfileStore } from '@/store/profileStore';
-import { API_URL } from '@/lib/api';
+import { useProfileStore } from '../../store/profileStore';
+import { API_BASE_URL } from '../../api/client';
 import { Camera, Mail, Building, UserCircle2 } from 'lucide-react';
 
 export default function ProfilePhotoCard() {
@@ -14,7 +14,7 @@ export default function ProfilePhotoCard() {
   const profilePhotoUrl = profile.profilePhoto
     ? profile.profilePhoto.startsWith('http')
       ? profile.profilePhoto
-      : `${API_URL.replace(/\/$/, '')}${profile.profilePhoto}`
+      : `${API_BASE_URL.replace(/\/api$/, '')}${profile.profilePhoto}`
     : null;
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {

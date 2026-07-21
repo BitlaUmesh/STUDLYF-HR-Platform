@@ -1,10 +1,9 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { getOrRefreshGitHubStats, syncGitHubStats } = require('../services/github');
+const { syncGitHubStats } = require('../services/github');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // ─── Leaderboard Scoring Algorithm ───────────────────────────────────────────
 function computeScore(student, githubStats, projects) {
@@ -37,13 +36,32 @@ router.get('/search', authenticate, async (req, res, next) => {
     const raw = req.query.q || '';
     const keywords = raw.split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 
-    if (!keywords.length) {
-      return res.status(400).json({ error: 'Provide at least one keyword via ?q=' });
-    }
-
     const students = await prisma.student.findMany({
       include: { githubStats: true, projects: true },
     });
+
+    if (!keywords.length) {
+      const results = students
+        .map((student) => {
+          const leaderboardScore = computeScore(student, student.githubStats, student.projects);
+          return {
+            id: student.id,
+            name: student.name,
+            email: student.email,
+            bio: student.bio,
+            skills: student.skills,
+            avatarUrl: student.avatarUrl,
+            githubUsername: student.githubUsername,
+            topLanguages: student.githubStats?.topLanguages || {},
+            projectCount: student.projects.length,
+            matchScore: 0,
+            leaderboardScore,
+          };
+        })
+        .sort((a, b) => b.leaderboardScore - a.leaderboardScore);
+
+      return res.json({ results, total: results.length, keywords: [] });
+    }
 
     const results = students
       .map((student) => {
@@ -139,9 +157,16 @@ router.get('/:id', authenticate, async (req, res, next) => {
 
     if (!student) return res.status(404).json({ error: 'Student not found' });
 
+    const application = await prisma.application.findUnique({
+      where: { hrId_studentId: { hrId: req.hrId, studentId: student.id } },
+      select: { id: true, status: true },
+    });
+
     const { githubAccessToken, ...safeStudent } = student;
     return res.json({
       ...safeStudent,
+      isInvited: !!application,
+      applicationStatus: application?.status || null,
       score: computeScore(student, student.githubStats, student.projects),
     });
   } catch (err) {

@@ -11,7 +11,8 @@ const prisma = new PrismaClient();
 router.post('/', authenticate, async (req, res, next) => {
   try {
     const { applicationId, title, duration, startTime, description } = req.body;
-    if (!applicationId || !title) return res.status(400).json({ error: 'applicationId and title are required' });
+    if (!applicationId || !title) return res.status(400).json({ error: 'Interview Title is required.' });
+    if (!startTime) return res.status(400).json({ error: 'Interview Date & Time is mandatory.' });
 
     const application = await prisma.application.findFirst({
       where: { id: applicationId, hrId: req.hrId },
@@ -24,31 +25,41 @@ router.post('/', authenticate, async (req, res, next) => {
     if (!application) return res.status(404).json({ error: 'Application not found' });
 
     // 1. Create Calendly one-off event link
-    const { schedulingUrl, eventUri } = await createOneOffMeeting({
-      name: title,
-      duration,
-      startTime,
-    });
+    let schedulingUrl = '';
+    let eventUri = '';
+    try {
+      const resData = await createOneOffMeeting({
+        name: title,
+        duration,
+        startTime,
+      });
+      schedulingUrl = resData.schedulingUrl;
+      eventUri = resData.eventUri;
+    } catch (e) {
+      console.warn('Calendly integration optional fallback:', e.message);
+    }
 
-    // 2. Save meeting to DB
+    // 2. Save meeting to DB with fixed scheduledAt date
     const meeting = await prisma.meeting.create({
       data: {
         hrId: req.hrId,
         applicationId,
         title,
         description,
-        calendlyEventUrl: schedulingUrl,
-        calendlyEventId: eventUri,
+        scheduledAt: new Date(startTime),
+        calendlyEventUrl: schedulingUrl || null,
+        calendlyEventId: eventUri || null,
         status: 'scheduled',
       },
     });
 
-    // 3. Send email to student
+    // 3. Send email notification to student with exact fixed interview time
     await sendMeetingInvite({
       to: application.student.email,
       hrName: application.hr.fullName,
       companyName: application.hr.companyName,
       title,
+      scheduledAt: startTime,
       calendlyLink: schedulingUrl,
     });
 
@@ -108,6 +119,44 @@ router.delete('/:id', authenticate, async (req, res, next) => {
     }
 
     return res.json({ message: 'Meeting cancelled' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── PATCH /api/meetings/:id/reschedule ─────────────────────────────────────────
+router.patch('/:id/reschedule', authenticate, async (req, res, next) => {
+  try {
+    const { startTime } = req.body;
+    if (!startTime) return res.status(400).json({ error: 'New interview Date & Time is required.' });
+
+    const meeting = await prisma.meeting.findFirst({
+      where: { id: req.params.id, hrId: req.hrId },
+      include: { application: { include: { student: true, hr: true } } },
+    });
+
+    if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
+
+    const updated = await prisma.meeting.update({
+      where: { id: meeting.id },
+      data: {
+        scheduledAt: new Date(startTime),
+        status: 'rescheduled',
+      },
+    });
+
+    if (meeting.application) {
+      await sendMeetingInvite({
+        to: meeting.application.student.email,
+        hrName: meeting.application.hr.fullName,
+        companyName: meeting.application.hr.companyName,
+        title: `${meeting.title} (Rescheduled)`,
+        scheduledAt: startTime,
+        calendlyLink: meeting.calendlyEventUrl,
+      });
+    }
+
+    return res.json(updated);
   } catch (err) {
     next(err);
   }

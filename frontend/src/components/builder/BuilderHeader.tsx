@@ -1,23 +1,20 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { ArrowLeft, Save, Download, Loader2, CheckCircle2, Menu, Bell, Search, ChevronRight, LogOut, User as UserIcon, Mail, X } from "lucide-react";
-import { useDocumentBuilderStore } from "@/store/documentBuilderStore";
-import { useAuthStore } from "@/store/authStore";
-import { useUiStore } from "@/store/uiStore";
+import { Save, Download, Loader2, Mail, X, CheckCircle2 } from "lucide-react";
+import { useDocumentBuilderStore } from "../../store/documentBuilderStore";
+import { useAuthStore } from "../../store/authStore";
+import { useUiStore } from "../../store/uiStore";
 import * as htmlToImage from "html-to-image";
 import jsPDF from "jspdf";
-import { sendDocumentEmail } from "@/lib/api";
+import { documentsApi } from "../../api/documents";
 
 export default function BuilderHeader() {
-  const { documentId, documentType, candidateDetails, saveStatus, setSaveStatus } = useDocumentBuilderStore();
-  const { user, logout } = useAuthStore();
-  const { isSidebarCollapsed, toggleSidebar } = useUiStore();
+  const { documentId, setDocumentId, documentType, candidateDetails, branding, saveStatus, setSaveStatus } = useDocumentBuilderStore();
+  const { user } = useAuthStore();
+  const { isSidebarCollapsed } = useUiStore();
   const [isExporting, setIsExporting] = useState(false);
   const [exportModal, setExportModal] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
 
   // Email sending state
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -26,6 +23,7 @@ export default function BuilderHeader() {
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [emailError, setEmailError] = useState("");
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (emailModalOpen) {
@@ -35,7 +33,8 @@ export default function BuilderHeader() {
         : `Joining Letter - ${company}`;
       setSubject(defaultSubject);
       setEmailError("");
-      setToEmail("");
+      const candEmail = (candidateDetails as any)?.candidateEmail || (candidateDetails as any)?.email || "";
+      setToEmail(candEmail);
     }
   }, [emailModalOpen, documentType, candidateDetails]);
 
@@ -51,6 +50,47 @@ export default function BuilderHeader() {
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return re.test(email);
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveStatus('Saving...');
+    try {
+      const title = candidateDetails?.candidateName 
+        ? `${documentType === 'offer' ? 'Offer' : 'Joining'} Letter - ${candidateDetails.candidateName}` 
+        : `${documentType === 'offer' ? 'Offer' : 'Joining'} Letter Draft`;
+      const type = documentType === 'offer' ? 'OFFER_LETTER' : 'JOINING_LETTER';
+      const contentHtml = useDocumentBuilderStore.getState().content;
+
+      if (documentId) {
+        await documentsApi.update(documentId, {
+          title,
+          type,
+          status: "draft",
+          candidateDetails,
+          contentJSON: { html: contentHtml },
+        });
+      } else {
+        const { data: newDoc } = await documentsApi.create({
+          title,
+          type,
+          status: "draft",
+          candidateDetails,
+          contentJSON: { html: contentHtml },
+        });
+        setDocumentId(newDoc.id);
+      }
+
+      setSaveStatus('Saved');
+      const timeStr = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      setToast({ message: `Letter saved successfully at ${timeStr}!`, type: 'success' });
+    } catch (err) {
+      console.error(err);
+      setSaveStatus('Unsaved Changes');
+      setToast({ message: 'Failed to save letter. Please try again.', type: 'error' });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleSendEmail = async (e: React.FormEvent) => {
@@ -81,7 +121,7 @@ export default function BuilderHeader() {
 
     setIsSendingEmail(true);
     try {
-      await sendDocumentEmail(documentId, {
+      await documentsApi.sendEmail(documentId, {
         to_email: toEmail,
         subject,
         html_content: htmlContent,
@@ -99,16 +139,31 @@ export default function BuilderHeader() {
     }
   };
 
-  // Auto-Save Mock Logic
-  useEffect(() => {
-    if (saveStatus === 'Unsaved Changes') {
-      const timer = setTimeout(() => {
-        setSaveStatus('Saving...');
-        setTimeout(() => setSaveStatus('Saved'), 800);
-      }, 1500);
-      return () => clearTimeout(timer);
-    }
-  }, [saveStatus, setSaveStatus]);
+  const capturePageA4Canvas = async (page: HTMLElement) => {
+    const origWidth = page.style.width;
+    const origMaxWidth = page.style.maxWidth;
+    const origMinWidth = page.style.minWidth;
+    const origHeight = page.style.height;
+
+    // Temporarily force exact A4 pixel dimensions in DOM to force proper CSS reflow
+    page.style.width = '794px';
+    page.style.maxWidth = '794px';
+    page.style.minWidth = '794px';
+    page.style.height = '1123px';
+
+    const canvas = await htmlToImage.toCanvas(page, {
+      quality: 1.0,
+      pixelRatio: 2,
+    });
+
+    // Restore original preview styling
+    page.style.width = origWidth;
+    page.style.maxWidth = origMaxWidth;
+    page.style.minWidth = origMinWidth;
+    page.style.height = origHeight;
+
+    return canvas.toDataURL('image/jpeg', 1.0);
+  };
 
   const handleExportPDF = async () => {
     setIsExporting(true);
@@ -117,23 +172,27 @@ export default function BuilderHeader() {
       const pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
       if (pages.length > 0) {
         const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
 
         for (let i = 0; i < pages.length; i++) {
           const page = pages[i];
-          const imgData = await htmlToImage.toJpeg(page, { quality: 1.0, pixelRatio: 2 });
+          const imgData = await capturePageA4Canvas(page);
           
           if (i > 0) {
             pdf.addPage();
           }
-          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+          // Exact A4 aspect ratio rendering (210mm x 297mm)
+          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
         }
         
         pdf.save(`Studlyf_${documentType}_Letter.pdf`);
+        setToast({ message: "PDF Letter exported successfully!", type: "success" });
       }
     } catch (error) {
       console.error("Export failed", error);
+      setToast({ message: "Failed exporting PDF. Please try again.", type: "error" });
     }
     setIsExporting(false);
   };
@@ -142,16 +201,21 @@ export default function BuilderHeader() {
     setIsExporting(true);
     setExportModal(false);
     try {
-      const input = document.getElementById('document-preview-container');
-      if (input) {
-        const dataUrl = await htmlToImage.toJpeg(input, { quality: 1.0, pixelRatio: 2 });
-        const link = document.createElement('a');
-        link.download = `Studlyf_${documentType}_Letter.jpg`;
-        link.href = dataUrl;
-        link.click();
+      const pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
+      if (pages.length > 0) {
+        for (let i = 0; i < pages.length; i++) {
+          const page = pages[i];
+          const dataUrl = await capturePageA4Canvas(page);
+          const link = document.createElement('a');
+          link.download = `Studlyf_${documentType}_Letter_Page_${i + 1}.jpg`;
+          link.href = dataUrl;
+          link.click();
+        }
+        setToast({ message: "JPG Image exported successfully!", type: "success" });
       }
     } catch (error) {
       console.error("JPG Export failed", error);
+      setToast({ message: "Failed exporting JPG.", type: "error" });
     }
     setIsExporting(false);
   };
@@ -160,139 +224,128 @@ export default function BuilderHeader() {
     setIsExporting(true);
     setExportModal(false);
     try {
-      const input = document.getElementById('document-preview-container');
-      if (input) {
-        const header = "<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>Export HTML to Word Document</title></head><body>";
-        const footer = "</body></html>";
-        const html = header + input.innerHTML + footer;
-        const blob = new Blob(['\ufeff', html], { type: 'application/msword' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = `Studlyf_${documentType}_Letter.doc`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-      }
+      const details: Record<string, any> = candidateDetails || {};
+      const safeBr: Record<string, any> = branding || {};
+
+      // Replace template variables for Word
+      let bodyHtml = (typeof useDocumentBuilderStore.getState().content === 'string' && useDocumentBuilderStore.getState().content.trim() !== '')
+        ? useDocumentBuilderStore.getState().content
+        : "<p>Dear {{candidate_name}},</p><p>We are thrilled to offer you the position of <strong>{{job_title}}</strong> at <strong>{{company_name}}</strong>.</p>";
+
+      const variables: Record<string, string> = {
+        '{{candidate_name}}': details.candidateName || '[Candidate Name]',
+        '{{candidate_email}}': details.candidateEmail || '[Candidate Email]',
+        '{{candidate_address}}': details.candidateAddress || '[Candidate Address]',
+        '{{job_title}}': details.jobTitle || '[Job Title]',
+        '{{department}}': details.department || '[Department]',
+        '{{work_mode}}': details.workMode || '[Work Mode]',
+        '{{joining_date}}': details.joiningDate || '[Joining Date]',
+        '{{salary}}': details.salary || '[Salary]',
+        '{{company_name}}': details.companyName || '[Company Name]',
+        '{{reporting_manager}}': details.reportingManager || '[Manager Name]',
+        '{{reporting_manager_designation}}': details.reportingManagerDesignation || '[Manager Designation]',
+        '{{hr_representative}}': details.hrRepresentative || '[HR Name]',
+      };
+
+      Object.entries(variables).forEach(([key, value]) => {
+        const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        bodyHtml = bodyHtml.replace(regex, `<strong>${value}</strong>`);
+      });
+
+      const todayStr = new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' });
+      const topBorderColor = safeBr.borderColors?.top || '#2D136F';
+
+      const wordDocHtml = [
+        '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">',
+        '<head><meta charset="utf-8"><title>', documentType === 'offer' ? 'Job Offer Letter' : 'Joining Letter', '</title>',
+        '<style>@page { size: 210mm 297mm; margin: 20mm; } body { font-family: "Times New Roman", serif; font-size: 11pt; line-height: 1.35; color: #0f172a; background-color: #ffffff; } table { border-collapse: collapse; width: 100%; } td { vertical-align: top; } p { margin: 0 0 10pt 0; } h1 { font-family: "Times New Roman", serif; font-size: 16pt; font-weight: bold; text-align: center; margin: 15pt 0 20pt 0; text-transform: uppercase; color: #0f172a; }</style>',
+        '</head><body>',
+        '<div style="height: 6px; background-color: ', topBorderColor, '; margin-bottom: 20px;"></div>',
+        '<table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 20px; border-bottom: 1px solid #e2e8f0; padding-bottom: 15px;">',
+        '<tr><td width="60%" align="left">',
+        safeBr.logoUrl ? `<img src="${safeBr.logoUrl}" width="80" height="80" style="width:80px; height:80px; margin-bottom: 8px;" /><br/>` : '',
+        '<strong style="font-size: 14pt; color: ', topBorderColor, '; text-transform: uppercase;">', details.companyName || 'STUDLYF INC.', '</strong><br/>',
+        '<span style="font-size: 9.5pt; color: #64748b;">', (details.companyAddress || 'Hyderabad, Telangana, India').replace(/\n/g, '<br/>'), '</span></td>',
+        '<td width="40%" align="right" style="font-size: 9.5pt; color: #64748b; line-height: 1.4;">',
+        details.companyPhone ? `<div>${details.companyPhone}</div>` : '',
+        details.companyEmail ? `<div>${details.companyEmail}</div>` : '',
+        details.companyWebsite ? `<div>${details.companyWebsite}</div>` : '',
+        '</td></tr></table>',
+        '<h1>', documentType === 'offer' ? 'JOB OFFER LETTER' : 'LETTER OF JOINING', '</h1>',
+        '<table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 25px;">',
+        '<tr><td width="60%" align="left"><strong style="font-size: 11pt; color: #0f172a;">', details.candidateName || '[Candidate Name]', '</strong><br/><span style="font-size: 10pt; color: #475569;">', details.candidateAddress || '[Candidate Address]', '</span></td>',
+        '<td width="40%" align="right" style="font-size: 10pt; color: #0f172a;"><strong>Date:</strong> ', todayStr, '</td></tr></table>',
+        '<div style="font-size: 11pt; line-height: 1.4; text-align: justify; margin-bottom: 30px;">', bodyHtml, '</div>',
+        '<table border="0" cellpadding="0" cellspacing="0" style="margin-top: 40px;"><tr>',
+        '<td width="50%" align="left">', safeBr.sealUrl ? `<img src="${safeBr.sealUrl}" width="90" height="90" style="width:90px; height:90px;" />` : '', '</td>',
+        '<td width="50%" align="right" style="text-align: right;"><p style="font-weight: bold; margin-bottom: 30px;">For ', details.companyName || 'Studlyf Inc.', ',</p>',
+        safeBr.signatureUrl ? `<img src="${safeBr.signatureUrl}" height="50" style="height:50px; margin-bottom: 5px;" /><br/>` : '',
+        '<div style="border-top: 1px solid #cbd5e1; width: 180px; margin-left: auto; padding-top: 5px;"><strong style="font-size: 10.5pt; color: #0f172a;">', details.hrRepresentative || 'Human Resources', '</strong><br/><span style="font-size: 9.5pt; color: #64748b;">', details.companyName || 'Authorized Signatory', '</span></div></td>',
+        '</tr></table></body></html>'
+      ].join('\n');
+
+      const blob = new Blob(['\ufeff', wordDocHtml], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `Studlyf_${documentType}_Letter.doc`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      setToast({ message: "Editable Word (DOCX) document exported successfully!", type: "success" });
     } catch (error) {
       console.error("DOCX Export failed", error);
+      setToast({ message: "Failed exporting Word document.", type: "error" });
     }
     setIsExporting(false);
   };
 
   return (
     <>
-      <header className={`fixed top-0 right-0 z-30 flex h-[88px] bg-white border-b border-slate-200 items-center justify-between px-4 sm:px-6 shadow-sm transition-all duration-300 ease-in-out ${
+      <header className={`fixed top-0 right-0 z-30 flex h-[72px] bg-white border-b border-slate-200 items-center justify-end px-6 shadow-xs transition-all duration-300 ease-in-out ${
         isSidebarCollapsed ? 'left-0 lg:left-[88px]' : 'left-0 lg:left-[280px]'
       }`}>
         
-        {/* Left: Hamburger & Breadcrumbs */}
-        <div className="flex items-center gap-4">
-          <button type="button" onClick={toggleSidebar} className="p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg transition-colors -ml-2">
-            <Menu className="h-5 w-5" />
-          </button>
-          <div className="hidden lg:flex items-center gap-2">
-            <Link href="/dashboard/documents" className="text-sm font-medium text-slate-500 hover:text-slate-900 transition-colors">
-              Documents
-            </Link>
-            <ChevronRight className="w-4 h-4 text-slate-400" />
-            <span className="text-sm font-bold text-slate-900 flex items-center gap-2">
-              {documentType === 'offer' ? 'New Offer Letter' : 'New Joining Letter'}
-              {saveStatus === 'Saving...' && <Loader2 size={12} className="animate-spin text-slate-400 ml-1" />}
-              {saveStatus === 'Saved' && <CheckCircle2 size={12} className="text-emerald-500 ml-1" />}
-            </span>
-          </div>
-        </div>
-
-        {/* Center: Search */}
-        <div className="flex flex-1 justify-center px-6">
-          <div className="relative w-full max-w-md hidden md:block">
-            <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-              <Search className="h-4 w-4 text-slate-400" />
-            </div>
-            <input
-              type="text"
-              className="block w-full rounded-full border-0 py-2 pl-10 pr-3 text-slate-900 ring-1 ring-inset ring-slate-200 placeholder:text-slate-400 focus:ring-2 focus:ring-inset focus:ring-primary sm:text-sm sm:leading-6 bg-slate-50 transition-all focus:bg-white"
-              placeholder="Search variables..."
-            />
-          </div>
-        </div>
-
-        {/* Right: Actions, Notifications, Profile */}
-        <div className="flex items-center gap-3 sm:gap-4 shrink-0">
+        {/* Only 3 Action Buttons */}
+        <div className="flex items-center gap-3">
           
           <button 
-            onClick={() => setSaveStatus('Saved')}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
+            onClick={handleSave}
+            disabled={isSaving}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-2xs disabled:opacity-50 cursor-pointer"
           >
-            <Save size={16} className={saveStatus === 'Saved' ? 'text-emerald-500' : 'text-slate-500'} />
-            <span className="hidden xl:inline">Save Draft</span>
+            {isSaving ? <Loader2 size={15} className="animate-spin text-primary" /> : <Save size={15} className={saveStatus === 'Saved' ? 'text-emerald-500' : 'text-slate-500'} />}
+            <span>{isSaving ? 'Saving...' : 'Save Draft'}</span>
           </button>
 
           <button 
             onClick={() => setEmailModalOpen(true)}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-colors shadow-sm"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 transition-all shadow-2xs cursor-pointer"
           >
-            <Mail size={16} className="text-slate-500" />
-            <span className="hidden xl:inline">Send via Email</span>
+            <Mail size={15} className="text-slate-500" />
+            <span>Send via Email</span>
           </button>
           
           <div className="relative">
             <button 
               onClick={() => setExportModal(!exportModal)}
               disabled={isExporting}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold text-white bg-gradient-to-r from-primary to-secondary shadow-md shadow-primary/20 hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary/90 shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
             >
-              {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-              <span className="hidden sm:inline">{isExporting ? 'Exporting...' : 'Export'}</span>
+              {isExporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
+              <span>{isExporting ? 'Exporting...' : 'Export Letter'}</span>
             </button>
 
             {exportModal && (
-              <div className="absolute right-0 top-full mt-2 w-48 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
-                <button onClick={handleExportPDF} className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors border-b border-slate-100 flex items-center justify-between">
-                  Export as PDF <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Pro</span>
+              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
+                <button onClick={handleExportPDF} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors border-b border-slate-100 flex items-center justify-between">
+                  Export as PDF <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">PDF</span>
                 </button>
-                <button onClick={handleExportDOCX} className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors border-b border-slate-100 flex items-center justify-between">
-                  Export as DOCX <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">New</span>
+                <button onClick={handleExportDOCX} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors border-b border-slate-100 flex items-center justify-between">
+                  Export as DOCX <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Word</span>
                 </button>
-                <button onClick={handleExportJPG} className="w-full text-left px-4 py-3 text-sm font-semibold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors flex items-center justify-between">
-                  Export as Image (JPG)
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="hidden lg:block h-6 w-px bg-slate-200" />
-
-          {/* Notifications */}
-          <button type="button" className="hidden lg:flex p-2 text-slate-400 hover:text-slate-500 hover:bg-slate-50 rounded-full transition-colors relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-2 w-2 h-2 rounded-full bg-red-500 border-2 border-white"></span>
-          </button>
-
-          {/* Profile dropdown */}
-          <div className="relative hidden lg:block">
-            <button 
-              type="button" 
-              className="flex items-center p-1 hover:bg-slate-50 rounded-lg transition-colors"
-              onClick={() => setProfileOpen(!profileOpen)}
-            >
-              <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-primary to-secondary flex items-center justify-center text-white font-bold text-xs shadow-sm shadow-primary/20">
-                {user?.fullName?.charAt(0) || "U"}
-              </div>
-            </button>
-
-            {profileOpen && (
-              <div className="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-xl bg-white py-2 shadow-lg ring-1 ring-slate-900/5 focus:outline-none animate-in fade-in slide-in-from-top-2 border border-slate-100">
-                <div className="px-4 py-2 border-b border-slate-100 mb-1">
-                   <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Account</p>
-                   <p className="text-sm font-bold text-slate-900 truncate mt-0.5">{user?.email}</p>
-                </div>
-                <Link href="/dashboard/profile" className="block px-4 py-2 text-sm text-slate-700 hover:bg-slate-50 font-medium flex items-center gap-2" onClick={() => setProfileOpen(false)}>
-                  <UserIcon size={16} /> Your Profile
-                </Link>
-                <button onClick={() => { setProfileOpen(false); logout(); }} className="w-full text-left px-4 py-2 text-sm text-destructive hover:bg-destructive/10 font-bold flex items-center gap-2 transition-colors">
-                  <LogOut size={16} /> Sign out
+                <button onClick={handleExportJPG} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors flex items-center justify-between">
+                  Export as Image <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">JPG</span>
                 </button>
               </div>
             )}
@@ -302,7 +355,7 @@ export default function BuilderHeader() {
       </header>
 
       {/* Backdrop for modals */}
-      {(exportModal || profileOpen) && <div className="fixed inset-0 z-20" onClick={() => { setExportModal(false); setProfileOpen(false); }} />}
+      {exportModal && <div className="fixed inset-0 z-20" onClick={() => setExportModal(false)} />}
 
       {/* Email Composition Modal */}
       {emailModalOpen && (

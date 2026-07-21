@@ -23,6 +23,7 @@ export interface ApplicationStudent {
   id: string;
   name: string;
   email: string;
+  bio?: string | null;
   skills: string[];
   avatarUrl?: string | null;
   githubUsername?: string | null;

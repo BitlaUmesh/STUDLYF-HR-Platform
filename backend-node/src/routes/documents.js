@@ -59,10 +59,54 @@ router.post('/create', async (req, res, next) => {
 // ── GET /api/documents/ ───────────────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
   try {
-    const docs = await prisma.document.findMany({
+    let docs = await prisma.document.findMany({
       where: { userId: req.hrId },
       orderBy: { updatedAt: 'desc' },
     });
+
+    if (docs.length === 0) {
+      // Auto seed 2 starter drafts for HR
+      const draft1 = await prisma.document.create({
+        data: {
+          userId: req.hrId,
+          type: 'OFFER_LETTER',
+          title: 'Offer Letter - Vikram Malhotra (Draft)',
+          status: 'draft',
+          candidateDetails: {
+            candidateName: 'Vikram Malhotra',
+            candidateEmail: 'vikram.malhotra@studlyf.com',
+            jobTitle: 'Senior Software Engineer',
+            salary: '$140,000 / year',
+            companyName: 'StudLyf Inc.',
+          },
+          contentJSON: {
+            html: '<p>Dear Vikram Malhotra,</p><p>We are thrilled to offer you the position of Senior Software Engineer at StudLyf Inc.</p>',
+          },
+        },
+      });
+
+      const draft2 = await prisma.document.create({
+        data: {
+          userId: req.hrId,
+          type: 'JOINING_LETTER',
+          title: 'Joining Letter - Neha Patil (Draft)',
+          status: 'draft',
+          candidateDetails: {
+            candidateName: 'Neha Patil',
+            candidateEmail: 'neha.patil@studlyf.com',
+            jobTitle: 'Frontend Engineer',
+            salary: '$115,000 / year',
+            companyName: 'StudLyf Inc.',
+          },
+          contentJSON: {
+            html: '<p>Dear Neha Patil,</p><p>Welcome to StudLyf Inc. We are excited to confirm your joining date as Frontend Engineer.</p>',
+          },
+        },
+      });
+
+      docs = [draft1, draft2];
+    }
+
     return res.json(docs);
   } catch (err) {
     next(err);

@@ -48,6 +48,8 @@ export interface StudentDetail {
   githubStats?: GitHubStats | null;
   projects: HackathonProject[];
   score: number;
+  isInvited?: boolean;
+  applicationStatus?: string | null;
 }
 
 export interface LeaderboardEntry {

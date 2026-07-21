@@ -1,28 +1,20 @@
-@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap');
 @import "tailwindcss";
 
 @theme {
-  /* Brand palette — grounded in the platform's own CompanyBranding defaults */
-  --color-ink: #14102a;
-  --color-ink-soft: #241d47;
-  --color-primary: #2d136f;
-  --color-primary-vivid: #5d22d8;
-  --color-primary-tint: #ede9fb;
-  --color-canvas: #f7f6fb;
+  /* Clean Senior B2B Palette — Inspired by Linear, Stripe & Vercel */
+  --color-ink: #0f172a;
+  --color-ink-soft: #1e293b;
+  --color-primary: #4f46e5;
+  --color-primary-vivid: #4338ca;
+  --color-canvas: #f8fafc;
   --color-surface: #ffffff;
-  --color-line: #e3e0ef;
-  --color-line-strong: #cbc5e3;
-  --color-text: #1c1730;
-  --color-text-muted: #635e7c;
+  --color-line: #e2e8f0;
+  --color-line-strong: #cbd5e1;
+  --color-text: #0f172a;
+  --color-text-muted: #64748b;
 
-  --color-signal-invited: #635e7c;
-  --color-signal-reviewing: #b8790f;
-  --color-signal-questions: #2f6fd6;
-  --color-signal-offered: #1f9d6b;
-  --color-signal-rejected: #d64545;
-
-  --font-display: 'Space Grotesk', 'Inter', sans-serif;
-  --font-sans: 'Inter', sans-serif;
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --font-mono: 'JetBrains Mono', monospace;
 }
 
@@ -31,26 +23,59 @@
     height: 100%;
   }
   body {
-    background-color: var(--color-canvas);
-    color: var(--color-text);
+    background-color: #f8fafc;
+    color: #0f172a;
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    letter-spacing: -0.01em;
   }
   ::selection {
-    background: var(--color-primary-vivid);
+    background: #4f46e5;
     color: white;
   }
   * {
     scrollbar-width: thin;
-    scrollbar-color: var(--color-line-strong) transparent;
+    scrollbar-color: #cbd5e1 transparent;
   }
 }
 
 @layer utilities {
-  .font-display {
-    font-family: var(--font-display);
-  }
   .font-mono-data {
     font-family: var(--font-mono);
+  }
+  /* Senior B2B Clean Card Styling */
+  .b2b-card {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
+    border-radius: 12px;
+  }
+  .b2b-card-hover {
+    transition: all 0.15s ease-in-out;
+  }
+  .b2b-card-hover:hover {
+    border-color: #cbd5e1;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -2px rgba(0, 0, 0, 0.03);
+  }
+}
+
+@layer base {
+  .hr-document-content ul {
+    list-style-type: disc;
+    padding-left: 1.5rem;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  .hr-document-content ol {
+    list-style-type: decimal;
+    padding-left: 1.5rem;
+    margin-top: 0.5em;
+    margin-bottom: 0.5em;
+  }
+  .hr-document-content li p {
+    margin: 0;
+  }
+  .hr-document-content p {
+    margin-bottom: 0.75em;
   }
 }

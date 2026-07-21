@@ -31,21 +31,24 @@ async function sendMailSafe(options) {
 /**
  * Send a meeting invite to a student with a Calendly booking link.
  */
-async function sendMeetingInvite({ to, hrName, companyName, title, calendlyLink }) {
+async function sendMeetingInvite({ to, hrName, companyName, title, scheduledAt, calendlyLink }) {
+  const formattedTime = scheduledAt ? new Date(scheduledAt).toLocaleString() : 'Scheduled by HR';
   await sendMailSafe({
     from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
-    subject: `Meeting Invitation from ${companyName} — ${title}`,
+    subject: `Interview Scheduled with ${companyName} — ${title}`,
     html: `
-      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-        <h2 style="color: #2D136F;">You've been invited to a meeting!</h2>
+      <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; border: 1px solid #e2e8f0; border-radius: 12px; padding: 24px;">
+        <h2 style="color: #2D136F; margin-top:0;">Interview Scheduled!</h2>
         <p>Hi there,</p>
-        <p><strong>${hrName}</strong> from <strong>${companyName}</strong> would like to schedule a meeting with you regarding: <strong>${title}</strong></p>
-        <p>Please use the link below to choose a time that works best for you:</p>
-        <a href="${calendlyLink}" style="display:inline-block; background:#2D136F; color:#fff; padding:12px 24px; border-radius:6px; text-decoration:none; margin-top:10px;">
-          📅 Book Your Meeting
-        </a>
-        <p style="margin-top:20px; color:#666; font-size:12px;">Powered by STUDLYF HR Platform</p>
+        <p><strong>${hrName}</strong> from <strong>${companyName}</strong> has scheduled an interview with you regarding: <strong>${title}</strong></p>
+        <div style="background-color: #f8fafc; border-left: 4px solid #2D136F; padding: 16px; margin: 20px 0; border-radius: 6px;">
+          <p style="margin: 0; font-size: 13px; color: #64748b; font-weight: bold; text-transform: uppercase;">Interview Date & Time:</p>
+          <p style="margin: 6px 0 0 0; font-size: 18px; font-weight: bold; color: #0f172a;">📅 ${formattedTime}</p>
+        </div>
+        <p style="color: #475569; font-size: 14px;">Please ensure you are punctual and ready for the interview at this exact time.</p>
+        ${calendlyLink ? `<a href="${calendlyLink}" style="display:inline-block; background:#2D136F; color:#fff; padding:12px 24px; border-radius:8px; text-decoration:none; font-weight:bold; margin-top:10px;">View Meeting Link</a>` : ''}
+        <p style="margin-top:24px; color:#94a3b8; font-size:12px;">Powered by STUDLYF HR Platform</p>
       </div>
     `,
   });

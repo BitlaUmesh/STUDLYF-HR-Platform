@@ -36,4 +36,6 @@ export const documentsApi = {
   update: (id: string, payload: Partial<CreateDocumentPayload>) =>
     apiClient.put<DocumentRecord>(`/documents/update/${id}`, payload),
   remove: (id: string) => apiClient.delete(`/documents/delete/${id}`),
+  sendEmail: (id: string, payload: { to_email: string; subject: string; html_content: string }) =>
+    apiClient.post(`/documents/${id}/send`, payload),
 };
