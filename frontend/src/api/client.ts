@@ -1,6 +1,11 @@
 import axios from 'axios';
 
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api';
+const isBrowser = typeof window !== 'undefined';
+const isVercel = isBrowser && window.location.hostname.endsWith('vercel.app');
+
+export const API_BASE_URL =
+  import.meta.env.VITE_API_BASE_URL ||
+  (isVercel ? 'https://studlyf-hr-platform.onrender.com/api' : '/api');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
