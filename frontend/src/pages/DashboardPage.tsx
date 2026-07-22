@@ -9,7 +9,7 @@ import { applicationsApi, APPLICATION_STATUSES, STATUS_LABELS, type Application 
 import { meetingsApi, type Meeting } from '../api/meetings';
 import { studentsApi } from '../api/students';
 import { useAuthStore } from '../store/authStore';
-import { StatusBadge, Avatar, Skeleton, Card } from '../components/ui';
+import { StatusBadge, Avatar, Skeleton } from '../components/ui';
 
 export function DashboardPage() {
   const user = useAuthStore((s) => s.user);
