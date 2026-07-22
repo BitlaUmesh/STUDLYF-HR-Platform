@@ -6,7 +6,10 @@ const { syncGitHubStats } = require('../services/github');
 const router = express.Router();
 
 // ─── Leaderboard Scoring Algorithm ───────────────────────────────────────────
-function computeScore(student, githubStats, projects) {
+function computeScore(student, ghStatsRaw, projsRaw) {
+  const githubStats = ghStatsRaw || student.githubStats || student.gitHubStats;
+  const projects = projsRaw || student.projects || student.hackathonProjects || [];
+
   // Average jury rating (0–10 scale) → 40%
   const avgRating = projects.length
     ? projects.reduce((sum, p) => sum + (p.juryRating || 0), 0) / projects.length
@@ -30,20 +33,41 @@ function computeScore(student, githubStats, projects) {
   return parseFloat((ratingScore + ghScore + projectScore + profileScore).toFixed(2));
 }
 
+function extractStudentData(student) {
+  const githubStats = student.githubStats || student.gitHubStats || null;
+  const projects = student.projects || student.hackathonProjects || [];
+  return { githubStats, projects };
+}
+
+async function fetchStudentsWithIncludes(where = {}, options = {}) {
+  try {
+    return await prisma.student.findMany({
+      where,
+      ...options,
+      include: { githubStats: true, projects: true },
+    });
+  } catch (err) {
+    return await prisma.student.findMany({
+      where,
+      ...options,
+      include: { gitHubStats: true, hackathonProjects: true },
+    });
+  }
+}
+
 // ── GET /api/students/search?q=AIML,Frontend ──────────────────────────────────
 router.get('/search', authenticate, async (req, res, next) => {
   try {
     const raw = req.query.q || '';
     const keywords = raw.split(',').map((k) => k.trim().toLowerCase()).filter(Boolean);
 
-    const students = await prisma.student.findMany({
-      include: { githubStats: true, projects: true },
-    });
+    const students = await fetchStudentsWithIncludes();
 
     if (!keywords.length) {
       const results = students
         .map((student) => {
-          const leaderboardScore = computeScore(student, student.githubStats, student.projects);
+          const { githubStats, projects } = extractStudentData(student);
+          const leaderboardScore = computeScore(student, githubStats, projects);
           return {
             id: student.id,
             name: student.name,
@@ -52,8 +76,8 @@ router.get('/search', authenticate, async (req, res, next) => {
             skills: student.skills,
             avatarUrl: student.avatarUrl,
             githubUsername: student.githubUsername,
-            topLanguages: student.githubStats?.topLanguages || {},
-            projectCount: student.projects.length,
+            topLanguages: githubStats?.topLanguages || {},
+            projectCount: projects.length,
             matchScore: 0,
             leaderboardScore,
           };
@@ -65,16 +89,18 @@ router.get('/search', authenticate, async (req, res, next) => {
 
     const results = students
       .map((student) => {
+        const { githubStats, projects } = extractStudentData(student);
+
         const skillMatches = (student.skills || []).filter((s) =>
           keywords.includes(s.toLowerCase())
         ).length;
 
-        const topLangs = Object.keys(student.githubStats?.topLanguages || {}).map((l) =>
+        const topLangs = Object.keys(githubStats?.topLanguages || {}).map((l) =>
           l.toLowerCase()
         );
         const langMatches = topLangs.filter((l) => keywords.includes(l)).length;
 
-        const projectTagMatches = student.projects
+        const projectTagMatches = projects
           .flatMap((p) => p.tags || [])
           .filter((t) => keywords.includes(t.toLowerCase())).length;
 
@@ -82,7 +108,7 @@ router.get('/search', authenticate, async (req, res, next) => {
 
         if (matchScore === 0) return null;
 
-        const leaderboardScore = computeScore(student, student.githubStats, student.projects);
+        const leaderboardScore = computeScore(student, githubStats, projects);
 
         return {
           id: student.id,
@@ -92,8 +118,8 @@ router.get('/search', authenticate, async (req, res, next) => {
           skills: student.skills,
           avatarUrl: student.avatarUrl,
           githubUsername: student.githubUsername,
-          topLanguages: student.githubStats?.topLanguages || {},
-          projectCount: student.projects.length,
+          topLanguages: githubStats?.topLanguages || {},
+          projectCount: projects.length,
           matchScore,
           leaderboardScore,
         };
@@ -112,28 +138,28 @@ router.get('/leaderboard', authenticate, async (req, res, next) => {
   try {
     const limit = parseInt(req.query.limit) || 50;
 
-    const students = await prisma.student.findMany({
-      include: { githubStats: true, projects: true },
-      take: 200, // fetch wider pool, rank in memory
-    });
+    const students = await fetchStudentsWithIncludes({}, { take: 200 });
 
     const ranked = students
-      .map((s) => ({
-        id: s.id,
-        name: s.name,
-        bio: s.bio,
-        skills: s.skills,
-        avatarUrl: s.avatarUrl,
-        githubUsername: s.githubUsername,
-        totalStars: s.githubStats?.totalStars || 0,
-        totalRepos: s.githubStats?.totalRepos || 0,
-        topLanguages: s.githubStats?.topLanguages || {},
-        projectCount: s.projects.length,
-        avgJuryRating: s.projects.length
-          ? (s.projects.reduce((sum, p) => sum + (p.juryRating || 0), 0) / s.projects.length).toFixed(1)
-          : null,
-        score: computeScore(s, s.githubStats, s.projects),
-      }))
+      .map((student) => {
+        const { githubStats, projects } = extractStudentData(student);
+        return {
+          id: student.id,
+          name: student.name,
+          bio: student.bio,
+          skills: student.skills,
+          avatarUrl: student.avatarUrl,
+          githubUsername: student.githubUsername,
+          totalStars: githubStats?.totalStars || 0,
+          totalRepos: githubStats?.totalRepos || 0,
+          topLanguages: githubStats?.topLanguages || {},
+          projectCount: projects.length,
+          avgJuryRating: projects.length
+            ? (projects.reduce((sum, p) => sum + (p.juryRating || 0), 0) / projects.length).toFixed(1)
+            : null,
+          score: computeScore(student, githubStats, projects),
+        };
+      })
       .sort((a, b) => b.score - a.score)
       .slice(0, limit)
       .map((s, i) => ({ ...s, rank: i + 1 }));
@@ -147,15 +173,22 @@ router.get('/leaderboard', authenticate, async (req, res, next) => {
 // ── GET /api/students/:id ─────────────────────────────────────────────────────
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const student = await prisma.student.findUnique({
-      where: { id: req.params.id },
-      include: {
-        githubStats: true,
-        projects: { orderBy: { juryRating: 'desc' } },
-      },
-    });
+    let student;
+    try {
+      student = await prisma.student.findUnique({
+        where: { id: req.params.id },
+        include: { githubStats: true, projects: { orderBy: { juryRating: 'desc' } } },
+      });
+    } catch {
+      student = await prisma.student.findUnique({
+        where: { id: req.params.id },
+        include: { gitHubStats: true, hackathonProjects: { orderBy: { juryRating: 'desc' } } },
+      });
+    }
 
     if (!student) return res.status(404).json({ error: 'Student not found' });
+
+    const { githubStats, projects } = extractStudentData(student);
 
     const application = await prisma.application.findUnique({
       where: { hrId_studentId: { hrId: req.hrId, studentId: student.id } },
@@ -165,9 +198,11 @@ router.get('/:id', authenticate, async (req, res, next) => {
     const { githubAccessToken, ...safeStudent } = student;
     return res.json({
       ...safeStudent,
+      githubStats,
+      projects,
       isInvited: !!application,
       applicationStatus: application?.status || null,
-      score: computeScore(student, student.githubStats, student.projects),
+      score: computeScore(student, githubStats, projects),
     });
   } catch (err) {
     next(err);

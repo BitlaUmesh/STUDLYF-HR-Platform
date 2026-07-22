@@ -37,19 +37,36 @@ router.post('/invite/:studentId', async (req, res, next) => {
 router.get('/', async (req, res, next) => {
   try {
     const { status } = req.query;
-    const applications = await prisma.application.findMany({
-      where: { hrId: req.hrId, ...(status && { status }) },
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        student: {
-          select: {
-            id: true, name: true, email: true, bio: true, skills: true, avatarUrl: true, githubUsername: true,
-            githubStats: true,
+    let applications;
+    try {
+      applications = await prisma.application.findMany({
+        where: { hrId: req.hrId, ...(status && { status }) },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          student: {
+            select: {
+              id: true, name: true, email: true, bio: true, skills: true, avatarUrl: true, githubUsername: true,
+              githubStats: true,
+            },
           },
+          meeting: { select: { id: true, status: true, scheduledAt: true, calendlyEventUrl: true } },
         },
-        meeting: { select: { id: true, status: true, scheduledAt: true, calendlyEventUrl: true } },
-      },
-    });
+      });
+    } catch {
+      applications = await prisma.application.findMany({
+        where: { hrId: req.hrId, ...(status && { status }) },
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          student: {
+            select: {
+              id: true, name: true, email: true, bio: true, skills: true, avatarUrl: true, githubUsername: true,
+              gitHubStats: true,
+            },
+          },
+          meeting: { select: { id: true, status: true, scheduledAt: true, calendlyEventUrl: true } },
+        },
+      });
+    }
     return res.json(applications);
   } catch (err) {
     next(err);
@@ -59,14 +76,26 @@ router.get('/', async (req, res, next) => {
 // ── GET /api/applications/:id ─────────────────────────────────────────────────
 router.get('/:id', async (req, res, next) => {
   try {
-    const application = await prisma.application.findFirst({
-      where: { id: req.params.id, hrId: req.hrId },
-      include: {
-        student: { include: { githubStats: true, projects: true } },
-        responses: { include: { question: true } },
-        meeting: true,
-      },
-    });
+    let application;
+    try {
+      application = await prisma.application.findFirst({
+        where: { id: req.params.id, hrId: req.hrId },
+        include: {
+          student: { include: { githubStats: true, projects: true } },
+          responses: { include: { question: true } },
+          meeting: true,
+        },
+      });
+    } catch {
+      application = await prisma.application.findFirst({
+        where: { id: req.params.id, hrId: req.hrId },
+        include: {
+          student: { include: { gitHubStats: true, hackathonProjects: true } },
+          responses: { include: { question: true } },
+          meeting: true,
+        },
+      });
+    }
     if (!application) return res.status(404).json({ error: 'Application not found' });
     return res.json(application);
   } catch (err) {
