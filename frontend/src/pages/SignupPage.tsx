@@ -37,7 +37,6 @@ export function SignupPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [animDir, setAnimDir] = useState<'right' | 'left'>('right');
 
   function update(field: keyof typeof form, value: string) {
     setForm((f) => ({ ...f, [field]: value }));
@@ -59,7 +58,6 @@ export function SignupPage() {
       return;
     }
     setError(null);
-    setAnimDir('right');
     setStep(1);
   }
 
@@ -286,7 +284,7 @@ export function SignupPage() {
                   variant="secondary"
                   size="xl"
                   className="flex-1"
-                  onClick={() => { setAnimDir('left'); setStep(0); }}
+                  onClick={() => setStep(0)}
                 >
                   Back
                 </Button>
