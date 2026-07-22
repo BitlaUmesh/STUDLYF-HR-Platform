@@ -1,12 +1,16 @@
 services:
-
-* type: web
-  name: studlyf-backend
-  runtime: python
-  rootDir: backend
-  buildCommand: pip install -r requirements.txt
-  startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
-  envVars:
-
-  * key: PYTHON_VERSION
-    value: 3.13.0
+  - type: web
+    name: studlyf-hr-platform
+    env: node
+    rootDir: backend-node
+    buildCommand: npm install && npx prisma generate
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20.0.0
+      - key: ENVIRONMENT
+        value: production
+      - key: FRONTEND_URL
+        value: https://studlyf-hr-platform.vercel.app
+      - key: GITHUB_REDIRECT_URI
+        value: https://studlyf-hr-platform.onrender.com/api/auth/github/callback

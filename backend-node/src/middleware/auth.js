@@ -1,5 +1,7 @@
 const jwt = require('jsonwebtoken');
 
+const JWT_SECRET = process.env.JWT_SECRET || '26a7805549a9746b06e65a3666b410d4ff72ded6d01bde669bfc9606f16249cd';
+
 /**
  * Verifies the access_token cookie and attaches hrId to req.
  * Used on all protected HR routes.
@@ -12,7 +14,7 @@ function authenticate(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET);
     req.hrId = payload.sub;
     next();
   } catch (err) {
@@ -32,7 +34,7 @@ function authenticateStudent(req, res, next) {
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = jwt.verify(token, JWT_SECRET);
     req.studentId = payload.sub;
     next();
   } catch (err) {

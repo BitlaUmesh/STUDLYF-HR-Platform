@@ -33,7 +33,7 @@
     "supertest": "^7.0.0"
   },
   "prisma": {
-    "schema": "prisma",
+    "schema": "prisma/schema.prisma",
     "seed": "node prisma/seed.js"
   },
   "engines": {

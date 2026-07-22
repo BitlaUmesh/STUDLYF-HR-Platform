@@ -15,8 +15,13 @@ const meetingsRoutes = require('./routes/meetings');
 const messagesRoutes = require('./routes/messages');
 
 const app = express();
+const frontendUrl = process.env.FRONTEND_URL ? process.env.FRONTEND_URL.replace(/\/$/, '') : null;
 const allowedOrigins = new Set(
-  ['http://localhost:3000', process.env.FRONTEND_URL].filter(Boolean)
+  [
+    'http://localhost:3000',
+    'https://studlyf-hr-platform.vercel.app',
+    frontendUrl,
+  ].filter(Boolean)
 );
 
 // ── Security Headers Middleware ───────────────────────────────────────────────

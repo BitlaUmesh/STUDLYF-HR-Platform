@@ -20,14 +20,17 @@ const cookieOptions = (maxAge) => ({
   path: '/',
 });
 
+const JWT_SECRET = process.env.JWT_SECRET || '26a7805549a9746b06e65a3666b410d4ff72ded6d01bde669bfc9606f16249cd';
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || '98fea5779bba9e1127e4d5acbf637ffe03f0c492db1435521a311267346862a9';
+
 function createAccessToken(userId) {
-  return jwt.sign({ sub: userId }, process.env.JWT_SECRET, {
+  return jwt.sign({ sub: userId }, JWT_SECRET, {
     expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '1d',
   });
 }
 
 function createRefreshToken(userId) {
-  return jwt.sign({ sub: userId }, process.env.JWT_REFRESH_SECRET, {
+  return jwt.sign({ sub: userId }, JWT_REFRESH_SECRET, {
     expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d',
   });
 }
@@ -132,7 +135,7 @@ router.post('/refresh', async (req, res, next) => {
 
     let payload;
     try {
-      payload = jwt.verify(token, process.env.JWT_REFRESH_SECRET);
+      payload = jwt.verify(token, JWT_REFRESH_SECRET);
     } catch {
       return res.status(401).json({ error: 'Invalid or expired refresh token' });
     }
@@ -170,7 +173,7 @@ router.get('/me', async (req, res, next) => {
 
     let payload;
     try {
-      payload = jwt.verify(token, process.env.JWT_SECRET);
+      payload = jwt.verify(token, JWT_SECRET);
     } catch {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
@@ -275,14 +278,15 @@ router.get('/github/callback', async (req, res, next) => {
     syncGitHubStats(student.id, githubToken).catch(console.error);
 
     // Issue student JWT
-    const accessToken = jwt.sign({ sub: student.id }, process.env.JWT_SECRET, {
+    const accessToken = jwt.sign({ sub: student.id }, JWT_SECRET, {
       expiresIn: '1d',
     });
 
     res.cookie('student_access_token', accessToken, cookieOptions(24 * 60 * 60 * 1000));
 
     // Redirect to frontend
-    return res.redirect(`${process.env.FRONTEND_URL}/student/dashboard`);
+    const targetFrontend = (process.env.FRONTEND_URL || 'https://studlyf-hr-platform.vercel.app').replace(/\/$/, '');
+    return res.redirect(`${targetFrontend}/dashboard`);
   } catch (err) {
     next(err);
   }
