@@ -10,7 +10,7 @@ import {
   Settings,
   LogOut,
   Building2,
-  AlertCircle,
+  Camera,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Avatar } from '../ui';
@@ -74,7 +74,7 @@ export function Sidebar() {
                   className={({ isActive }) =>
                     `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all duration-150 ${
                       isActive
-                        ? 'bg-indigo-600/90 text-white shadow-sm border-l-2 border-indigo-300/60'
+                        ? 'bg-indigo-600 text-white shadow-sm border-l-2 border-indigo-300'
                         : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border-l-2 border-transparent'
                     }`
                   }
@@ -96,36 +96,22 @@ export function Sidebar() {
           className={({ isActive }) =>
             `relative flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-150 ${
               isActive
-                ? 'bg-indigo-600/90 text-white'
+                ? 'bg-indigo-600 text-white'
                 : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
             }`
           }
         >
           <Settings size={16} className="shrink-0" />
           <span>Settings & Branding</span>
-          {/* Profile incomplete indicator */}
           {!hasPhoto && (
-            <span className="ml-auto">
+            <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-400">
               <span className="pulse-dot" />
             </span>
           )}
         </NavLink>
 
-        {/* Profile incomplete banner */}
-        {!hasPhoto && (
-          <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-2.5 flex items-start gap-2">
-            <AlertCircle size={13} className="shrink-0 text-amber-400 mt-0.5" />
-            <p className="text-[10px] font-semibold text-amber-300 leading-relaxed">
-              Add a profile photo in{' '}
-              <NavLink to="/settings" className="underline underline-offset-2 hover:text-amber-200">
-                Settings
-              </NavLink>
-            </p>
-          </div>
-        )}
-
         {/* User card */}
-        <div className="flex items-center gap-3 rounded-xl p-2.5 bg-slate-900/80 border border-slate-800/80 mt-2">
+        <div className="flex items-center gap-3 rounded-xl p-2.5 bg-slate-900/90 border border-slate-800/80 mt-1">
           <Avatar
             src={user?.profilePhoto}
             name={user?.fullName}
@@ -134,12 +120,12 @@ export function Sidebar() {
           />
           <div className="min-w-0 flex-1">
             <p className="truncate text-xs font-bold text-slate-100">{user?.fullName || 'HR Administrator'}</p>
-            <p className="truncate text-[10px] text-slate-500 font-medium">{user?.email || 'hr@company.com'}</p>
+            <p className="truncate text-[10px] text-slate-400 font-medium">{user?.email || 'hr@company.com'}</p>
           </div>
           <button
             onClick={() => logout()}
             title="Log out"
-            className="rounded-md p-1.5 text-slate-500 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer shrink-0"
+            className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer shrink-0"
           >
             <LogOut size={14} />
           </button>

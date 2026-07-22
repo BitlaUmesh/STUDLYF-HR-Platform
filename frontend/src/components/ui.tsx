@@ -144,6 +144,22 @@ export function Textarea({ className, ...props }: TextareaHTMLAttributes<HTMLTex
   );
 }
 
+const GRADIENTS = [
+  'from-indigo-500 to-violet-600',
+  'from-blue-500 to-cyan-600',
+  'from-emerald-500 to-teal-600',
+  'from-purple-500 to-pink-600',
+  'from-amber-500 to-orange-600',
+  'from-rose-500 to-red-600',
+];
+
+function getGradient(name?: string | null) {
+  if (!name) return GRADIENTS[0];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return GRADIENTS[Math.abs(hash) % GRADIENTS.length];
+}
+
 // ── Avatar ─────────────────────────────────────────────────────────────────
 export function Avatar({
   src,
@@ -161,7 +177,7 @@ export function Avatar({
   const sizeClasses = {
     xs: 'h-6 w-6 text-[10px]',
     sm: 'h-8 w-8 text-xs',
-    md: 'h-10 w-10 text-sm',
+    md: 'h-10 w-10 text-xs',
     lg: 'h-14 w-14 text-base',
     xl: 'h-20 w-20 text-xl',
   };
@@ -174,6 +190,8 @@ export function Avatar({
         .toUpperCase()
     : '??';
 
+  const gradientClass = getGradient(name);
+
   return (
     <div className={clsx('relative shrink-0', className)}>
       {src ? (
@@ -185,7 +203,8 @@ export function Avatar({
       ) : (
         <div
           className={clsx(
-            'flex items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-600 font-bold text-white ring-2 ring-white',
+            'flex items-center justify-center rounded-full font-bold text-white ring-2 ring-white bg-gradient-to-br',
+            gradientClass,
             sizeClasses[size]
           )}
         >
