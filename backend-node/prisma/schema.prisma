@@ -138,8 +138,8 @@ model Student {
   githubAccessToken String?
   createdAt         DateTime           @default(now())
   updatedAt         DateTime           @updatedAt
-  gitHubStats       GitHubStats?
-  hackathonProjects HackathonProject[]
+  githubStats       GitHubStats?
+  projects          HackathonProject[]
   applications      Application[]
   messages          Message[]
 }
