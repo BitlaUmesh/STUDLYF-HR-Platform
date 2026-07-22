@@ -12,5 +12,5 @@ services:
         value: production
       - key: FRONTEND_URL
         value: https://studlyf-hr-platform.vercel.app
-      - key: GITHUB_REDIRECT_URI
+      - key: GITHUB_REDIRECT_URL
         value: https://studlyf-hr-platform.onrender.com/api/auth/github/callback

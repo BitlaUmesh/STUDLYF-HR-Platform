@@ -203,7 +203,7 @@ router.get('/me', async (req, res, next) => {
 router.get('/github', (req, res) => {
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
-    redirect_uri: process.env.GITHUB_REDIRECT_URI,
+    redirect_uri: process.env.GITHUB_REDIRECT_URL || process.env.GITHUB_REDIRECT_URI,
     scope: 'read:user user:email',
   });
   res.redirect(`https://github.com/login/oauth/authorize?${params}`);
@@ -225,7 +225,7 @@ router.get('/github/callback', async (req, res, next) => {
         client_id: process.env.GITHUB_CLIENT_ID,
         client_secret: process.env.GITHUB_CLIENT_SECRET,
         code,
-        redirect_uri: process.env.GITHUB_REDIRECT_URI,
+        redirect_uri: process.env.GITHUB_REDIRECT_URL || process.env.GITHUB_REDIRECT_URI,
       },
       { headers: { Accept: 'application/json' } }
     );

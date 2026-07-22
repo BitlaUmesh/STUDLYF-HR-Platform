@@ -31,7 +31,7 @@ async function createOneOffMeeting({ name, duration = 30, startTime }) {
     `${CALENDLY_API}/one_off_event_types`,
     {
       name,
-      host: process.env.CALENDLY_USER_URI,
+      host: process.env.CALENDLY_USER_URL || process.env.CALENDLY_USER_URI,
       duration,
       // If a specific start time is given, restrict availability
       ...(startTime && {
@@ -63,7 +63,7 @@ async function registerWebhook(callbackUrl) {
     {
       url: callbackUrl,
       events: ['invitee.created', 'invitee.canceled'],
-      organization: process.env.CALENDLY_USER_URI,
+      organization: process.env.CALENDLY_USER_URL || process.env.CALENDLY_USER_URI,
       scope: 'user',
       signing_key: process.env.CALENDLY_WEBHOOK_SECRET,
     },
