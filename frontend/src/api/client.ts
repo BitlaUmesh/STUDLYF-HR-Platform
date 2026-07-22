@@ -48,12 +48,16 @@ apiClient.interceptors.response.use(
         isRefreshing = false;
         flushQueue();
         return apiClient(original);
-      } catch (refreshErr) {
+      } catch {
         isRefreshing = false;
         flushQueue();
-        // Refresh failed — force login
+        // Refresh failed silently — dispatch logout and redirect to /login
         window.dispatchEvent(new CustomEvent('auth:logout'));
-        return Promise.reject(refreshErr);
+        // Redirect to login without exposing the raw error to the user
+        if (typeof window !== 'undefined') {
+          window.location.href = '/login';
+        }
+        return Promise.reject(new Error('Session expired. Please sign in again.'));
       }
     }
 

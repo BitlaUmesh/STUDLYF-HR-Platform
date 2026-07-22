@@ -136,9 +136,9 @@ router.get('/search', authenticate, async (req, res, next) => {
 // ── GET /api/students/leaderboard ─────────────────────────────────────────────
 router.get('/leaderboard', authenticate, async (req, res, next) => {
   try {
-    const limit = parseInt(req.query.limit) || 50;
+    const limit = parseInt(req.query.limit) || 5;
 
-    const students = await fetchStudentsWithIncludes({}, { take: 200 });
+    const students = await fetchStudentsWithIncludes({}, { take: 20 });
 
     const ranked = students
       .map((student) => {
