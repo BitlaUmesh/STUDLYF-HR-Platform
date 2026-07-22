@@ -51,12 +51,8 @@ apiClient.interceptors.response.use(
       } catch {
         isRefreshing = false;
         flushQueue();
-        // Refresh failed silently — dispatch logout and redirect to /login
+        // Refresh failed silently — dispatch logout
         window.dispatchEvent(new CustomEvent('auth:logout'));
-        // Redirect to login without exposing the raw error to the user
-        if (typeof window !== 'undefined') {
-          window.location.href = '/login';
-        }
         return Promise.reject(new Error('Session expired. Please sign in again.'));
       }
     }
