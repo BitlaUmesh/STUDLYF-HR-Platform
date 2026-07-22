@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Trophy, Star, Code2, Layers } from 'lucide-react';
+import { Trophy, Star, Code2, Layers, Crown } from 'lucide-react';
 
 /** Inline GitHub mark — lucide-react v1+ removed the Github icon */
 function GithubIcon({ size = 16 }: { size?: number }) {
@@ -10,78 +10,124 @@ function GithubIcon({ size = 16 }: { size?: number }) {
     </svg>
   );
 }
+
 import { studentsApi, type LeaderboardEntry } from '../api/students';
 import { PageHeader, Avatar, Badge, Skeleton } from '../components/ui';
 
 const RANK_CONFIG = [
-  { medal: '🥇', label: '1st', ring: 'rank-gold',   bg: 'from-amber-50 to-orange-50',   border: 'border-amber-300',  text: 'text-amber-700', size: 'lg' as const },
-  { medal: '🥈', label: '2nd', ring: 'rank-silver',  bg: 'from-slate-50 to-gray-50',     border: 'border-slate-300',  text: 'text-slate-600', size: 'md' as const },
-  { medal: '🥉', label: '3rd', ring: 'rank-bronze',  bg: 'from-orange-50 to-amber-50',   border: 'border-orange-300', text: 'text-orange-700', size: 'md' as const },
+  {
+    medal: '🥇',
+    rankBadge: '#1 Winner',
+    bg: 'from-amber-100/90 via-yellow-50/70 to-amber-50/90',
+    border: 'border-amber-400',
+    ring: 'ring-4 ring-amber-400/80 shadow-lg',
+    pillBg: 'bg-amber-500 text-white shadow-xs',
+    text: 'text-amber-900',
+    chipBorder: 'border-amber-300/80 bg-amber-50/80 text-amber-900',
+    size: 'lg' as const,
+    isPrimary: true,
+  },
+  {
+    medal: '🥈',
+    rankBadge: '2nd Place',
+    bg: 'from-slate-100 via-slate-50 to-indigo-50/30',
+    border: 'border-slate-300',
+    ring: 'ring-4 ring-slate-300/80 shadow-xs',
+    pillBg: 'bg-slate-700 text-white shadow-xs',
+    text: 'text-slate-800',
+    chipBorder: 'border-slate-200 bg-white text-slate-700',
+    size: 'md' as const,
+    isPrimary: false,
+  },
+  {
+    medal: '🥉',
+    rankBadge: '3rd Place',
+    bg: 'from-rose-100/80 via-orange-50/40 to-rose-50/60',
+    border: 'border-rose-300',
+    ring: 'ring-4 ring-rose-300/80 shadow-xs',
+    pillBg: 'bg-rose-600 text-white shadow-xs',
+    text: 'text-rose-900',
+    chipBorder: 'border-rose-200/80 bg-rose-50/80 text-rose-900',
+    size: 'md' as const,
+    isPrimary: false,
+  },
 ];
 
 function PodiumCard({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   const cfg = RANK_CONFIG[rank - 1];
-  const isPrimary = rank === 1;
 
   return (
     <Link
       to={`/students/${entry.id}`}
-      className={`group flex flex-col items-center rounded-2xl border-2 ${cfg.border} bg-gradient-to-b ${cfg.bg} p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-xl ${
-        isPrimary ? 'lg:scale-105 shadow-lg' : ''
+      className={`group flex flex-col items-center rounded-2xl border-2 ${cfg.border} bg-gradient-to-b ${cfg.bg} p-6 text-center transition-all duration-200 hover:-translate-y-1 hover:shadow-2xl relative overflow-hidden ${
+        cfg.isPrimary ? 'lg:scale-105 shadow-xl ring-2 ring-amber-400/40' : 'shadow-md'
       }`}
     >
-      <div className="mb-3 text-4xl animate-fade-in">{cfg.medal}</div>
+      {/* Winner Crown Banner for 1st Place */}
+      {cfg.isPrimary && (
+        <div className="absolute -top-1 font-bold text-[10px] uppercase tracking-widest bg-gradient-to-r from-amber-500 to-yellow-500 text-white px-4 py-0.5 rounded-b-lg shadow-xs flex items-center gap-1">
+          <Crown size={11} className="fill-white" /> Overall #1 Winner
+        </div>
+      )}
+
+      <div className="mb-3 text-4xl pt-2 animate-fade-in">{cfg.medal}</div>
+      
       <Avatar
         src={entry.avatarUrl}
         name={entry.name}
         size={cfg.size}
-        className={isPrimary ? '' : ''}
+        className={cfg.ring}
       />
-      <p className={`mt-3 font-display text-base font-bold text-[var(--color-ink)] ${isPrimary ? 'text-lg' : ''}`}>
+
+      <p className={`mt-3.5 font-display font-black text-slate-900 leading-tight ${cfg.isPrimary ? 'text-xl' : 'text-base'}`}>
         {entry.name}
       </p>
+
       {entry.githubUsername && (
         <a
           href={`https://github.com/${entry.githubUsername}`}
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="mt-0.5 flex items-center gap-1 text-xs text-[var(--color-text-muted)] hover:text-[var(--color-primary)]"
+          className="mt-0.5 flex items-center gap-1 text-xs font-semibold text-slate-500 hover:text-indigo-600 transition-colors"
         >
           <GithubIcon size={11} />
-          {entry.githubUsername}
+          @{entry.githubUsername}
         </a>
       )}
 
-      {/* Score */}
-      <div className={`mt-3 flex items-center gap-1.5 rounded-full px-3 py-1 ${isPrimary ? 'bg-amber-100' : 'bg-white/80'}`}>
-        <Trophy size={13} className={cfg.text} />
-        <span className={`text-sm font-bold ${cfg.text}`}>{entry.score.toFixed(1)}</span>
-        <span className="text-xs text-[var(--color-text-muted)]">pts</span>
+      {/* Score Pill */}
+      <div className={`mt-3.5 flex items-center gap-1.5 rounded-full px-3.5 py-1 ${cfg.pillBg}`}>
+        <Trophy size={13} />
+        <span className="text-sm font-black">{entry.score.toFixed(1)}</span>
+        <span className="text-[10px] font-bold opacity-80">pts</span>
       </div>
 
       {/* Stats chips */}
-      <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+      <div className="mt-3.5 flex flex-wrap justify-center gap-1.5">
         {entry.totalStars > 0 && (
-          <span className="flex items-center gap-1 rounded-full bg-white/80 border border-amber-200 px-2 py-0.5 text-xs font-semibold text-amber-700">
-            <Star size={10} /> {entry.totalStars}
+          <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${cfg.chipBorder}`}>
+            <Star size={11} className="fill-amber-400 text-amber-400" /> {entry.totalStars}
           </span>
         )}
         {entry.totalRepos > 0 && (
-          <span className="flex items-center gap-1 rounded-full bg-white/80 border border-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
-            <Code2 size={10} /> {entry.totalRepos} repos
+          <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${cfg.chipBorder}`}>
+            <Code2 size={11} /> {entry.totalRepos} repos
           </span>
         )}
         {entry.projectCount > 0 && (
-          <span className="flex items-center gap-1 rounded-full bg-white/80 border border-indigo-200 px-2 py-0.5 text-xs font-semibold text-indigo-700">
-            <Layers size={10} /> {entry.projectCount} projects
+          <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-bold ${cfg.chipBorder}`}>
+            <Layers size={11} /> {entry.projectCount} projects
           </span>
         )}
       </div>
 
-      {entry.skills?.slice(0, 3).map((skill) => (
-        <Badge key={skill} color="indigo" className="mt-1.5 text-[10px]">{skill}</Badge>
-      ))}
+      {/* Skills */}
+      <div className="flex flex-wrap justify-center gap-1 mt-2.5">
+        {entry.skills?.slice(0, 3).map((skill) => (
+          <Badge key={skill} color="indigo" className="text-[10px] font-semibold">{skill}</Badge>
+        ))}
+      </div>
     </Link>
   );
 }
@@ -90,24 +136,24 @@ function RankRow({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
   return (
     <Link
       to={`/students/${entry.id}`}
-      className="group flex items-center gap-4 rounded-xl border border-[var(--color-line)] bg-white p-4 transition-all hover:border-[var(--color-primary)] hover:shadow-sm hover:-translate-y-0.5"
+      className="group flex items-center gap-4 rounded-xl border border-slate-200/80 bg-white p-4 transition-all hover:border-indigo-300 hover:shadow-md hover:-translate-y-0.5"
     >
-      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--color-canvas-dark)] font-display text-sm font-bold text-[var(--color-text-muted)]">
-        {rank}
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100 font-display text-xs font-black text-slate-500">
+        #{rank}
       </div>
       <Avatar src={entry.avatarUrl} name={entry.name} size="sm" />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-bold text-[var(--color-ink)] group-hover:text-[var(--color-primary)]">{entry.name}</p>
+        <p className="truncate text-sm font-bold text-slate-900 group-hover:text-indigo-600 transition-colors">{entry.name}</p>
         {entry.githubUsername && (
-          <p className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
-            <GithubIcon size={10} /> {entry.githubUsername}
+          <p className="flex items-center gap-1 text-xs font-medium text-slate-400 mt-0.5">
+            <GithubIcon size={10} /> @{entry.githubUsername}
           </p>
         )}
       </div>
-      <div className="flex items-center gap-1.5 shrink-0">
-        <Trophy size={14} className="text-amber-500" />
-        <span className="text-sm font-bold text-[var(--color-ink)]">{entry.score.toFixed(1)}</span>
-        <span className="text-xs text-[var(--color-text-muted)]">pts</span>
+      <div className="flex items-center gap-1.5 shrink-0 bg-slate-50 border border-slate-200/70 px-3 py-1 rounded-full">
+        <Trophy size={13} className="text-amber-500" />
+        <span className="text-sm font-black text-slate-900">{entry.score.toFixed(1)}</span>
+        <span className="text-[10px] font-bold text-slate-400">pts</span>
       </div>
     </Link>
   );
@@ -124,24 +170,23 @@ export function LeaderboardPage() {
   const rest   = entries?.slice(3) ?? [];
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="space-y-8 pb-12 animate-fade-in">
       <PageHeader
         title="Leaderboard"
         subtitle="Top 5 talent ranked by jury ratings, GitHub activity, project count, and profile completeness."
         action={
           <div className="flex items-center gap-2 rounded-full bg-amber-50 border border-amber-200 px-4 py-2">
             <Trophy size={16} className="text-amber-600" />
-            <span className="text-sm font-bold text-amber-700">Top 5</span>
+            <span className="text-xs font-bold text-amber-800">Top 5 Performers</span>
           </div>
         }
       />
 
       {entries === null ? (
-        /* ── Loading skeleton ── */
         <div className="space-y-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="rounded-2xl border border-[var(--color-line)] p-6 space-y-3">
+              <div key={i} className="rounded-2xl border border-slate-200 p-6 space-y-3">
                 <Skeleton className="h-8 w-8 mx-auto rounded-full" />
                 <Skeleton className="h-12 w-12 mx-auto rounded-full" />
                 <Skeleton className="h-4 w-3/4 mx-auto" />
@@ -153,28 +198,27 @@ export function LeaderboardPage() {
       ) : entries.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <div className="mb-4 text-6xl">🏆</div>
-          <h3 className="font-display text-lg font-bold text-[var(--color-ink)]">No rankings yet</h3>
-          <p className="mt-2 text-sm text-[var(--color-text-muted)]">Once students join StudLyf and sync GitHub, they'll rank here.</p>
+          <h3 className="font-display text-lg font-bold text-slate-900">No rankings yet</h3>
+          <p className="mt-2 text-xs text-slate-500">Once students join StudLyf and sync GitHub, they'll rank here.</p>
         </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-8">
           {/* ── Podium (top 3) ── */}
           {podium.length > 0 && (
             <div>
-              <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
-                <span>🏆</span> Top Performers
+              <h2 className="mb-4 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
+                <span>🏆</span> Top 3 Performers
               </h2>
-              {/* Arrange: 2nd | 1st | 3rd on desktop */}
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                {/* Mobile: 1, 2, 3 order. Desktop: reorder via CSS order */}
-                {podium[0] && (
-                  <div className="md:order-2 animate-fade-in-up">
-                    <PodiumCard entry={podium[0]} rank={1} />
-                  </div>
-                )}
+              <div className="grid grid-cols-1 gap-5 md:grid-cols-3 items-end">
+                {/* Desktop layout: 2nd place | 1st place | 3rd place */}
                 {podium[1] && (
                   <div className="md:order-1 animate-fade-in-up delay-100">
                     <PodiumCard entry={podium[1]} rank={2} />
+                  </div>
+                )}
+                {podium[0] && (
+                  <div className="md:order-2 animate-fade-in-up">
+                    <PodiumCard entry={podium[0]} rank={1} />
                   </div>
                 )}
                 {podium[2] && (
@@ -189,10 +233,10 @@ export function LeaderboardPage() {
           {/* ── Ranks 4–5 ── */}
           {rest.length > 0 && (
             <div>
-              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-[var(--color-text-muted)]">
+              <h2 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-slate-400">
                 <span>📋</span> Also in the Top 5
               </h2>
-              <div className="space-y-2 animate-fade-in-up delay-300">
+              <div className="space-y-2.5 animate-fade-in-up delay-300">
                 {rest.map((entry) => (
                   <RankRow key={entry.id} entry={entry} rank={entry.rank} />
                 ))}

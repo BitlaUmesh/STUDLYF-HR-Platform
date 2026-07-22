@@ -10,7 +10,6 @@ import {
   Settings,
   LogOut,
   Building2,
-  Camera,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Avatar } from '../ui';
