@@ -427,7 +427,7 @@ router.get('/google', (req, res) => {
     return res.status(503).json({ error: 'Google OAuth is not configured on this server.' });
   }
   const frontendUrl = (process.env.FRONTEND_URL || 'https://studlyf-hr-platform.vercel.app').replace(/\/$/, '');
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -448,7 +448,7 @@ router.get('/google/callback', async (req, res, next) => {
     const { code } = req.query;
     if (!code) return res.status(400).json({ error: 'Missing OAuth code from Google' });
 
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
 
     // Exchange code for tokens
     const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
