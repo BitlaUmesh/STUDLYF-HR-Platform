@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 const isBrowser = typeof window !== 'undefined';
+const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 const isVercel = isBrowser && window.location.hostname.endsWith('vercel.app');
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_BASE_URL ||
-  (isVercel ? 'https://studlyf-hr-platform.onrender.com/api' : '/api');
+export const API_BASE_URL = isLocalhost
+  ? 'http://localhost:3001/api'
+  : (import.meta.env.VITE_API_BASE_URL || (isVercel ? 'https://studlyf-hr-platform.onrender.com/api' : '/api'));
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

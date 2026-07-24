@@ -133,12 +133,25 @@ router.get('/search', authenticate, async (req, res, next) => {
   }
 });
 
-// ── GET /api/students/leaderboard ─────────────────────────────────────────────
-router.get('/leaderboard', authenticate, async (req, res, next) => {
-  try {
-    const limit = parseInt(req.query.limit) || 5;
+// ── Leaderboard 2-Hour Automatic Refresh Cache & Scheduler ──────────────────────
+const REFRESH_INTERVAL_MS = 2 * 60 * 60 * 1000; // 2 Hours
 
-    const students = await fetchStudentsWithIncludes({}, { take: 20 });
+let leaderboardCache = {
+  data: [],
+  lastRefreshedAt: new Date().toISOString(),
+  nextRefreshAt: new Date(Date.now() + REFRESH_INTERVAL_MS).toISOString(),
+};
+
+async function computeAndCacheLeaderboard() {
+  try {
+    const students = await fetchStudentsWithIncludes({}, { take: 50 });
+    
+    // Trigger background sync for connected GitHub accounts if any
+    for (const s of students) {
+      if (s.githubAccessToken) {
+        syncGitHubStats(s.id, s.githubAccessToken).catch(() => {});
+      }
+    }
 
     const ranked = students
       .map((student) => {
@@ -161,10 +174,44 @@ router.get('/leaderboard', authenticate, async (req, res, next) => {
         };
       })
       .sort((a, b) => b.score - a.score)
-      .slice(0, limit)
       .map((s, i) => ({ ...s, rank: i + 1 }));
 
-    return res.json({ leaderboard: ranked, total: ranked.length });
+    const now = new Date();
+    leaderboardCache = {
+      data: ranked,
+      lastRefreshedAt: now.toISOString(),
+      nextRefreshAt: new Date(now.getTime() + REFRESH_INTERVAL_MS).toISOString(),
+    };
+    console.log(`[Leaderboard] Automated 2-hour refresh executed successfully at ${now.toISOString()}`);
+  } catch (err) {
+    console.error('[Leaderboard] Automated refresh error:', err);
+  }
+}
+
+// Initial calculation and 2-hour recurring interval timer
+computeAndCacheLeaderboard();
+setInterval(computeAndCacheLeaderboard, REFRESH_INTERVAL_MS);
+
+// ── GET /api/students/leaderboard ─────────────────────────────────────────────
+router.get('/leaderboard', authenticate, async (req, res, next) => {
+  try {
+    const limit = parseInt(req.query.limit) || 5;
+    const force = req.query.force === 'true';
+
+    // If force refresh requested or cache empty
+    if (!leaderboardCache.data || !leaderboardCache.data.length || force) {
+      await computeAndCacheLeaderboard();
+    }
+
+    const sliced = (leaderboardCache.data || []).slice(0, limit);
+
+    return res.json({
+      leaderboard: sliced,
+      total: sliced.length,
+      lastRefreshedAt: leaderboardCache.lastRefreshedAt,
+      nextRefreshAt: leaderboardCache.nextRefreshAt,
+      refreshIntervalHours: 2,
+    });
   } catch (err) {
     next(err);
   }

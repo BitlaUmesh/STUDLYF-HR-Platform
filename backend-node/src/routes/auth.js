@@ -327,10 +327,9 @@ router.post('/change-password', authenticate, async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/forgot-password
 // ─────────────────────────────────────────────────────────────────────────────
-const RESET_SECRET = process.env.JWT_RESET_SECRET || process.env.JWT_SECRET + '_reset';
-
+// ── Transporter & OTP Helper ──────────────────────────────────────────────────
 const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
+  host: process.env.SMTP_HOST || 'smtp.gmail.com',
   port: Number(process.env.SMTP_PORT) || 587,
   secure: false,
   auth: {
@@ -339,79 +338,251 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-router.post('/forgot-password', async (req, res, next) => {
+async function sendOtpEmail(email, otp, title, subtitle) {
+  const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `STUDLYF HR <${process.env.SMTP_USER}>` : 'STUDLYF HR <noreply@studlyf.com>');
+  
+  const htmlContent = `
+    <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
+      <div style="margin-bottom:24px;text-align:center;">
+        <div style="display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;border-radius:16px;background:linear-gradient(135deg,#FF2A5F 0%,#D946EF 50%,#2D136F 100%);color:white;font-weight:900;font-size:24px;box-shadow:0 4px 14px rgba(217,70,239,0.35);">
+          S
+        </div>
+        <h1 style="font-size:20px;font-weight:800;color:#0f172a;margin-top:12px;margin-bottom:4px;letter-spacing:-0.5px;">STUDLYF HR</h1>
+      </div>
+      
+      <div style="background-color:#f8fafc;border:1px solid #f1f5f9;border-radius:12px;padding:24px;text-align:center;">
+        <h2 style="font-size:18px;font-weight:700;color:#0f172a;margin-top:0;margin-bottom:8px;">${title}</h2>
+        <p style="color:#64748b;font-size:13px;line-height:1.5;margin-top:0;margin-bottom:20px;">
+          ${subtitle}
+        </p>
+
+        <div style="letter-spacing:10px;font-size:32px;font-weight:900;color:#2D136F;background:white;border:2px dashed #D946EF;padding:14px 20px;border-radius:12px;display:inline-block;margin:0 auto 16px auto;">
+          ${otp}
+        </div>
+
+        <p style="color:#94a3b8;font-size:11px;margin:0;">
+          This 6-digit verification code is valid for <strong>10 minutes</strong>. Do not share this code with anyone.
+        </p>
+      </div>
+
+      <div style="margin-top:24px;text-align:center;border-t:1px solid #f1f5f9;padding-top:16px;">
+        <p style="color:#cbd5e1;font-size:11px;margin:0;">
+          © ${new Date().getFullYear()} STUDLYF HR Platform. All rights reserved.
+        </p>
+      </div>
+    </div>
+  `;
+
+  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
+    try {
+      await transporter.sendMail({
+        from: fromAddress,
+        to: email,
+        subject: `${otp} is your STUDLYF verification code`,
+        html: htmlContent,
+      });
+    } catch (e) {
+      console.error('[OTP Mailer Error]', e);
+    }
+  }
+  
+  // Dev Fallback console print
+  console.log(`\n==========================================`);
+  console.log(`[STUDLYF 6-DIGIT OTP] Email: ${email} | Code: ${otp}`);
+  console.log(`==========================================\n`);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Signup 6-Digit OTP Endpoints
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/send-signup-otp', async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
 
-    const user = await prisma.user.findUnique({ where: { email } });
-    // Always return 200 to avoid email enumeration
-    if (!user) return res.json({ message: 'If that email exists, a reset link has been sent.' });
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'An account with this email already exists. Please log in.' });
+    }
 
-    const resetToken = jwt.sign({ sub: user.id, purpose: 'password_reset' }, RESET_SECRET, { expiresIn: '15m' });
-    const frontendUrl = (process.env.FRONTEND_URL || 'https://studlyf-hr-platform.vercel.app').replace(/\/$/, '');
-    const resetLink = `${frontendUrl}/reset-password?token=${resetToken}`;
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || `STUDLYF HR <${process.env.SMTP_USER}>`,
-      to: user.email,
-      subject: 'Reset your StudLyf HR password',
-      html: `
-        <div style="font-family:Inter,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;">
-          <div style="margin-bottom:24px;">
-            <div style="display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:12px;background:#4338ca;">
-              <span style="color:white;font-weight:700;font-size:18px;">S</span>
-            </div>
-          </div>
-          <h2 style="font-size:22px;font-weight:700;color:#0f172a;margin-bottom:8px;">Reset your password</h2>
-          <p style="color:#64748b;font-size:14px;line-height:1.6;margin-bottom:24px;">
-            Hi ${user.fullName}, you requested a password reset for your StudLyf HR account.
-            Click the button below to set a new password. This link expires in <strong>15 minutes</strong>.
-          </p>
-          <a href="${resetLink}" style="display:inline-block;background:#4338ca;color:white;font-weight:600;font-size:14px;padding:12px 28px;border-radius:10px;text-decoration:none;">
-            Reset Password
-          </a>
-          <p style="margin-top:24px;color:#94a3b8;font-size:12px;">
-            If you didn't request this, you can safely ignore this email. Your password won't change.
-          </p>
-        </div>
-      `,
+    // Delete older OTPs for this email & type
+    await prisma.otpVerification.deleteMany({ where: { email, type: 'signup' } });
+    await prisma.otpVerification.create({
+      data: { email, otp, type: 'signup', expiresAt },
     });
 
-    return res.json({ message: 'If that email exists, a reset link has been sent.' });
+    await sendOtpEmail(email, otp, 'Verify Your Email Address', 'Enter this 6-digit verification code to complete your STUDLYF HR account registration:');
+    return res.json({ message: '6-digit verification code sent to your Gmail', email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/verify-signup-otp', async (req, res, next) => {
+  try {
+    const { email, otp, fullName, password, companyName } = req.body;
+    if (!email || !otp || !fullName || !password || !companyName) {
+      return res.status(400).json({ error: 'All signup fields and 6-digit OTP code are required.' });
+    }
+
+    const validRecord = await prisma.otpVerification.findFirst({
+      where: {
+        email,
+        otp: otp.trim(),
+        type: 'signup',
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!validRecord) {
+      return res.status(400).json({ error: 'Invalid or expired 6-digit OTP verification code.' });
+    }
+
+    const existing = await prisma.user.findUnique({ where: { email } });
+    if (existing) {
+      return res.status(400).json({ error: 'Email already registered.' });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const user = await prisma.user.create({
+      data: {
+        fullName,
+        email,
+        hashedPassword,
+        companyName,
+        branding: { create: {} },
+      },
+      select: { id: true, fullName: true, email: true, companyName: true, createdAt: true },
+    });
+
+    await prisma.otpVerification.deleteMany({ where: { email, type: 'signup' } });
+
+    const accessToken = createAccessToken(user.id);
+    const refreshToken = createRefreshToken(user.id);
+    res.cookie('access_token', accessToken, cookieOptions(24 * 60 * 60 * 1000));
+    res.cookie('refresh_token', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
+
+    return res.status(201).json({ message: 'Account verified and created successfully', user });
   } catch (err) {
     next(err);
   }
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// POST /api/auth/reset-password
+// Forgot Password 6-Digit OTP Endpoints
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/reset-password', async (req, res, next) => {
+router.post('/forgot-password-otp', async (req, res, next) => {
   try {
-    const { token, newPassword } = req.body;
-    if (!token || !newPassword || newPassword.length < 8) {
-      return res.status(400).json({ error: 'Token and a password of at least 8 characters are required.' });
+    const { email } = req.body;
+    if (!email) return res.status(400).json({ error: 'Email is required' });
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) {
+      return res.status(404).json({ error: 'No account found with this email address.' });
     }
 
-    let payload;
-    try {
-      payload = jwt.verify(token, RESET_SECRET);
-    } catch {
-      return res.status(400).json({ error: 'This reset link is invalid or has expired.' });
+    const otp = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
+
+    await prisma.otpVerification.deleteMany({ where: { email, type: 'forgot_password' } });
+    await prisma.otpVerification.create({
+      data: { email, otp, type: 'forgot_password', expiresAt },
+    });
+
+    await sendOtpEmail(email, otp, 'Reset Password Verification', 'Use this 6-digit verification code to reset your STUDLYF HR password:');
+    return res.json({ message: '6-digit verification code sent to your Gmail', email });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/verify-reset-otp', async (req, res, next) => {
+  try {
+    const { email, otp } = req.body;
+    if (!email || !otp) return res.status(400).json({ error: 'Email and 6-digit OTP code are required.' });
+
+    const validRecord = await prisma.otpVerification.findFirst({
+      where: {
+        email,
+        otp: otp.trim(),
+        type: 'forgot_password',
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!validRecord) {
+      return res.status(400).json({ error: 'Invalid or expired 6-digit verification code.' });
     }
 
-    if (payload.purpose !== 'password_reset') {
-      return res.status(400).json({ error: 'Invalid reset token.' });
+    return res.json({ message: 'OTP verified successfully', valid: true });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/reset-password-otp', async (req, res, next) => {
+  try {
+    const { email, otp, newPassword } = req.body;
+    if (!email || !otp || !newPassword || newPassword.length < 8) {
+      return res.status(400).json({ error: 'Email, valid 6-digit OTP, and a password of at least 8 characters are required.' });
+    }
+
+    const validRecord = await prisma.otpVerification.findFirst({
+      where: {
+        email,
+        otp: otp.trim(),
+        type: 'forgot_password',
+        expiresAt: { gt: new Date() },
+      },
+    });
+
+    if (!validRecord) {
+      return res.status(400).json({ error: 'Invalid or expired 6-digit verification code.' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
     await prisma.user.update({
-      where: { id: payload.sub },
-      data: { hashedPassword },
+      where: { email },
+      data: { hashedPassword, needsPasswordSetup: false },
     });
 
-    return res.json({ message: 'Password updated successfully. Please sign in.' });
+    await prisma.otpVerification.deleteMany({ where: { email, type: 'forgot_password' } });
+
+    return res.json({ message: 'Password reset successfully. You can now log in.' });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Google OAuth First-time Password Setup
+// ─────────────────────────────────────────────────────────────────────────────
+router.post('/set-google-password', async (req, res, next) => {
+  try {
+    const { email, password } = req.body;
+    if (!email || !password || password.length < 8) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters long.' });
+    }
+
+    const user = await prisma.user.findUnique({ where: { email } });
+    if (!user) return res.status(404).json({ error: 'Account not found.' });
+
+    const hashedPassword = await bcrypt.hash(password, 12);
+    const updatedUser = await prisma.user.update({
+      where: { email },
+      data: { hashedPassword, needsPasswordSetup: false },
+      select: { id: true, fullName: true, email: true, companyName: true },
+    });
+
+    const accessToken = createAccessToken(updatedUser.id);
+    const refreshToken = createRefreshToken(updatedUser.id);
+    res.cookie('access_token', accessToken, cookieOptions(24 * 60 * 60 * 1000));
+    res.cookie('refresh_token', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
+
+    return res.json({ message: 'Password saved successfully! You can now sign in using Email + Password or Google.', user: updatedUser });
   } catch (err) {
     next(err);
   }
@@ -426,8 +597,8 @@ router.get('/google', (req, res) => {
   if (!clientId) {
     return res.status(503).json({ error: 'Google OAuth is not configured on this server.' });
   }
-  const frontendUrl = (process.env.FRONTEND_URL || 'https://studlyf-hr-platform.vercel.app').replace(/\/$/, '');
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+  const defaultRedirect = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || defaultRedirect;
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -448,7 +619,8 @@ router.get('/google/callback', async (req, res, next) => {
     const { code } = req.query;
     if (!code) return res.status(400).json({ error: 'Missing OAuth code from Google' });
 
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+    const defaultRedirect = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || defaultRedirect;
 
     // Exchange code for tokens
     const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
@@ -469,21 +641,23 @@ router.get('/google/callback', async (req, res, next) => {
     const { email, name, picture } = googleUser;
     if (!email) return res.status(400).json({ error: 'Could not retrieve email from Google' });
 
-    // Upsert HR User record
     let user = await prisma.user.findUnique({ where: { email } });
+    let isNewUser = false;
+
     if (!user) {
+      isNewUser = true;
       user = await prisma.user.create({
         data: {
           fullName: name || email.split('@')[0],
           email,
-          hashedPassword: await bcrypt.hash(Math.random().toString(36), 12), // random unusable password
+          hashedPassword: await bcrypt.hash(Math.random().toString(36), 12),
           companyName: email.split('@')[1]?.split('.')[0] || 'My Company',
           profilePhoto: picture || null,
+          needsPasswordSetup: true,
           branding: { create: {} },
         },
       });
     } else if (picture && !user.profilePhoto) {
-      // Sync profile photo from Google if not set
       await prisma.user.update({ where: { id: user.id }, data: { profilePhoto: picture } });
     }
 
@@ -492,7 +666,13 @@ router.get('/google/callback', async (req, res, next) => {
     res.cookie('access_token', accessToken, cookieOptions(24 * 60 * 60 * 1000));
     res.cookie('refresh_token', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
 
-    const targetFrontend = (process.env.FRONTEND_URL || 'https://studlyf-hr-platform.vercel.app').replace(/\/$/, '');
+    const targetFrontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+
+    // If new Google user or needs password setup, redirect to /set-password
+    if (isNewUser || user.needsPasswordSetup) {
+      return res.redirect(`${targetFrontend}/set-password?email=${encodeURIComponent(user.email)}`);
+    }
+
     return res.redirect(`${targetFrontend}/dashboard`);
   } catch (err) {
     next(err);

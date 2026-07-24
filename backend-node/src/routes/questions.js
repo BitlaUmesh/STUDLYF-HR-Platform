@@ -103,12 +103,13 @@ router.post('/respond/:applicationId', authenticateStudent, async (req, res, nex
 
     const application = await prisma.application.findFirst({
       where: { id: req.params.applicationId, studentId: req.studentId },
-      include: { responses: true },
+      include: { screeningResponses: true },
     });
     if (!application) return res.status(404).json({ error: 'Application not found' });
 
+    const existingResponses = application.screeningResponses || [];
     const updatePromises = Object.entries(answers).map(([responseId, answer]) => {
-      const exists = application.responses.find((r) => r.id === responseId);
+      const exists = existingResponses.find((r) => r.id === responseId);
       if (exists) {
         return prisma.screeningResponse.update({
           where: { id: responseId },
@@ -131,14 +132,14 @@ router.get('/responses/:applicationId', authenticate, async (req, res, next) => 
     const application = await prisma.application.findFirst({
       where: { id: req.params.applicationId, hrId: req.hrId },
       include: {
-        responses: {
+        screeningResponses: {
           include: { question: true },
         },
       },
     });
     if (!application) return res.status(404).json({ error: 'Application not found' });
 
-    return res.json(application.responses);
+    return res.json(application.screeningResponses || []);
   } catch (err) {
     next(err);
   }

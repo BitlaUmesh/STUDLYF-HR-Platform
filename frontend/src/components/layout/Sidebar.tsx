@@ -9,7 +9,6 @@ import {
   Trophy,
   Settings,
   LogOut,
-  Building2,
 } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 import { Avatar } from '../ui';
@@ -42,43 +41,41 @@ export function Sidebar() {
   const hasPhoto = Boolean(user?.profilePhoto);
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col bg-[#0f172a] text-slate-300 border-r border-slate-800/80">
+    <aside className="flex h-full w-64 shrink-0 flex-col bg-white text-slate-800 border-r border-slate-200/90 shadow-2xs">
       {/* ── Brand Header ── */}
-      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-800/60">
-        <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gradient-to-br from-indigo-500 to-violet-600 font-semibold text-white text-sm shadow-lg shrink-0">
-          <Building2 size={17} />
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-slate-100 bg-slate-50/40">
+        <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white border border-slate-200/90 p-1.5 shadow-md shrink-0 hover:scale-105 transition-transform">
+          <img src="/logo-s.png" alt="StudLyf Logo" className="h-full w-full object-contain filter drop-shadow-sm" />
         </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-sm font-bold text-white tracking-tight leading-none truncate">
-            {user?.companyName || 'StudLyf HR'}
-          </p>
-          <p className="mt-1 text-[10px] font-semibold text-slate-500 uppercase tracking-widest truncate">
-            Talent Management
+        <div className="min-w-0 flex-1 flex flex-col justify-center">
+          <img src="/studlyf-logo.png" alt="STUDLYF" className="h-7 w-auto object-contain object-left" />
+          <p className="mt-0.5 text-[9px] font-extrabold text-slate-400 uppercase tracking-widest truncate">
+            {user?.companyName ? `${user.companyName}` : 'HR Platform'}
           </p>
         </div>
       </div>
 
       {/* ── Navigation ── */}
-      <nav className="flex-1 overflow-y-auto px-3 py-4 space-y-5">
+      <nav className="flex-1 overflow-y-auto px-3 py-5 space-y-6">
         {NAV_SECTIONS.map((section) => (
           <div key={section.label}>
-            <p className="mb-1.5 px-3 text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+            <p className="mb-2 px-3 text-[10px] font-extrabold text-slate-400 uppercase tracking-widest">
               {section.label}
             </p>
-            <div className="space-y-0.5">
+            <div className="space-y-1">
               {section.items.map(({ to, label, icon: Icon }) => (
                 <NavLink
                   key={to}
                   to={to}
                   className={({ isActive }) =>
-                    `group flex items-center gap-3 rounded-lg px-3 py-2.5 text-xs font-semibold transition-all duration-150 ${
+                    `group flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 ${
                       isActive
-                        ? 'bg-indigo-600 text-white shadow-sm border-l-2 border-indigo-300'
-                        : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100 border-l-2 border-transparent'
+                        ? 'bg-gradient-to-r from-[#ff2a5f] to-[#c026d3] text-white shadow-md shadow-pink-500/20 scale-[1.01]'
+                        : 'text-slate-600 hover:bg-pink-50/60 hover:text-[#d946ef]'
                     }`
                   }
                 >
-                  <Icon size={16} className="shrink-0" />
+                  <Icon size={17} className="shrink-0" />
                   <span className="truncate">{label}</span>
                 </NavLink>
               ))}
@@ -88,29 +85,29 @@ export function Sidebar() {
       </nav>
 
       {/* ── Footer ── */}
-      <div className="border-t border-slate-800/60 p-3 space-y-1.5">
+      <div className="border-t border-slate-100 p-3 space-y-2 bg-slate-50/40">
         {/* Settings link */}
         <NavLink
           to="/settings"
           className={({ isActive }) =>
-            `relative flex items-center gap-3 rounded-lg px-3 py-2 text-xs font-semibold transition-all duration-150 ${
+            `relative flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-bold transition-all duration-150 ${
               isActive
-                ? 'bg-indigo-600 text-white'
-                : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-100'
+                ? 'bg-gradient-to-r from-[#ff2a5f] to-[#c026d3] text-white shadow-md shadow-pink-500/20'
+                : 'text-slate-600 hover:bg-pink-50/60 hover:text-[#d946ef]'
             }`
           }
         >
-          <Settings size={16} className="shrink-0" />
+          <Settings size={17} className="shrink-0" />
           <span>Settings & Branding</span>
           {!hasPhoto && (
-            <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-400">
+            <span className="ml-auto flex items-center gap-1 text-[10px] font-bold text-amber-500">
               <span className="pulse-dot" />
             </span>
           )}
         </NavLink>
 
         {/* User card */}
-        <div className="flex items-center gap-3 rounded-xl p-2.5 bg-slate-900/90 border border-slate-800/80 mt-1">
+        <div className="flex items-center gap-3 rounded-xl p-2.5 bg-white border border-slate-200/90 shadow-2xs mt-1">
           <Avatar
             src={user?.profilePhoto}
             name={user?.fullName}
@@ -118,15 +115,15 @@ export function Sidebar() {
             showIndicator
           />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-xs font-bold text-slate-100">{user?.fullName || 'HR Administrator'}</p>
+            <p className="truncate text-xs font-bold text-slate-800">{user?.fullName || 'HR Administrator'}</p>
             <p className="truncate text-[10px] text-slate-400 font-medium">{user?.email || 'hr@company.com'}</p>
           </div>
           <button
             onClick={() => logout()}
             title="Log out"
-            className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 hover:text-slate-100 transition-colors cursor-pointer shrink-0"
+            className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer shrink-0"
           >
-            <LogOut size={14} />
+            <LogOut size={15} />
           </button>
         </div>
       </div>

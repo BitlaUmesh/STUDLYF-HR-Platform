@@ -17,12 +17,13 @@ const transporter = isSmtpConfigured ? nodemailer.createTransport({
 }) : null;
 
 async function sendMailSafe(options) {
-  if (!isSmtpConfigured || !transporter) {
-    console.log('[SMTP SKIPPED] Email sending skipped (unconfigured):', options.subject);
+  if (!isSmtpConfigured || !transporter || typeof transporter.sendMail !== 'function') {
+    console.log('[SMTP SKIPPED] Email sending skipped (unconfigured or transporter not ready):', options.subject);
     return;
   }
   try {
     await transporter.sendMail(options);
+    console.log('[SMTP OK] Email sent to:', options.to);
   } catch (err) {
     console.warn('[SMTP ERROR] Failed to send email via SMTP, but continuing:', err.message);
   }
@@ -121,13 +122,33 @@ async function sendApplicationStatusUpdate({ to, companyName, status }) {
   });
 }
 
-async function sendDocumentEmail({ to, subject, htmlContent }) {
-  await transporter.sendMail({
-    from: process.env.SMTP_FROM,
+/**
+ * Send a document (offer/joining letter) via email with an optional attachment.
+ * @param {object} opts
+ * @param {string} opts.to - Recipient email address
+ * @param {string} opts.subject - Email subject
+ * @param {string} opts.htmlContent - HTML body of the email
+ * @param {{ filename: string; content: string; contentType: string }|undefined} opts.attachment - Optional base64 file attachment
+ */
+async function sendDocumentEmail({ to, subject, htmlContent, attachment }) {
+  const mailOptions = {
+    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject,
     html: htmlContent,
-  });
+  };
+
+  if (attachment && attachment.content && attachment.filename) {
+    mailOptions.attachments = [
+      {
+        filename: attachment.filename,
+        content: Buffer.from(attachment.content, 'base64'),
+        contentType: attachment.contentType || 'application/octet-stream',
+      },
+    ];
+  }
+
+  await sendMailSafe(mailOptions);
 }
 
 module.exports = {

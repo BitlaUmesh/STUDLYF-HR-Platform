@@ -68,15 +68,23 @@ export interface LeaderboardEntry {
   rank: number;
 }
 
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[];
+  total: number;
+  lastRefreshedAt?: string;
+  nextRefreshAt?: string;
+  refreshIntervalHours?: number;
+}
+
 export const studentsApi = {
   search: (keywords: string) =>
     apiClient.get<{ results: StudentSearchResult[]; total: number; keywords: string[] }>(
       '/students/search',
       { params: { q: keywords } }
     ),
-  leaderboard: (limit = 50) =>
-    apiClient.get<{ leaderboard: LeaderboardEntry[]; total: number }>('/students/leaderboard', {
-      params: { limit },
+  leaderboard: (limit = 50, force = false) =>
+    apiClient.get<LeaderboardResponse>('/students/leaderboard', {
+      params: { limit, force },
     }),
   getById: (id: string) => apiClient.get<StudentDetail>(`/students/${id}`),
   syncGithub: (studentId: string) =>

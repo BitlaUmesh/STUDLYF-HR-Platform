@@ -2,14 +2,14 @@
 @import "tailwindcss";
 
 @theme {
-  /* ── Brand Palette ─────────────────────────────────────────────── */
+  /* ── Brand Palette (Derived from STUDLYF Logo) ─────────────────── */
   --color-ink:              #0f172a;
   --color-ink-soft:         #1e293b;
-  --color-primary:          #4f46e5;
-  --color-primary-vivid:    #4338ca;
-  --color-primary-light:    #6366f1;
-  --color-primary-tint:     #eef2ff;
-  --color-primary-glow:     rgba(99, 102, 241, 0.15);
+  --color-primary:          #d946ef;
+  --color-primary-vivid:    #ff2a5f;
+  --color-primary-light:    #f43f5e;
+  --color-primary-tint:     #fdf2f8;
+  --color-primary-glow:     rgba(255, 42, 95, 0.18);
 
   --color-canvas:           #f8fafc;
   --color-canvas-dark:      #f1f5f9;
@@ -25,7 +25,7 @@
   --color-text-subtle:      #94a3b8;
 
   /* ── Pipeline Signal Colors ────────────────────────────────────── */
-  --color-signal-invited:    #6366f1;
+  --color-signal-invited:    #d946ef;
   --color-signal-reviewing:  #f59e0b;
   --color-signal-questions:  #3b82f6;
   --color-signal-offered:    #10b981;
@@ -60,7 +60,7 @@
     letter-spacing: -0.02em;
   }
   ::selection {
-    background: var(--color-primary);
+    background: #ff2a5f;
     color: white;
   }
   * {
@@ -124,9 +124,9 @@
     border: 1px solid rgba(255, 255, 255, 0.08);
   }
 
-  /* ── Gradient text ─────────────────────────────────────────────── */
+  /* ── STUDLYF Signature Gradient text ─────────────────────────────── */
   .gradient-text {
-    background: linear-gradient(135deg, #6366f1 0%, #4f46e5 50%, #7c3aed 100%);
+    background: linear-gradient(135deg, #ff2a5f 0%, #d946ef 50%, #2d136f 100%);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;

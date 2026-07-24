@@ -47,7 +47,7 @@ export function Button({
         size === 'md' && 'px-4 py-2.5 text-sm',
         size === 'xl' && 'px-6 py-3.5 text-base',
         variant === 'primary' &&
-          'bg-[var(--color-primary-vivid)] text-white hover:bg-[var(--color-primary)] shadow-[0_1px_3px_rgba(67,56,202,0.35)] hover:shadow-[0_4px_12px_rgba(67,56,202,0.4)]',
+          'bg-gradient-to-r from-[#ff2a5f] via-[#d946ef] to-[#2d136f] text-white hover:opacity-95 shadow-[0_2px_10px_rgba(255,42,95,0.3)] hover:shadow-[0_4px_16px_rgba(217,70,239,0.4)] active:scale-[0.99]',
         variant === 'secondary' &&
           'border border-[var(--color-line-strong)] bg-white text-[var(--color-text)] hover:bg-[var(--color-primary-tint)] hover:border-[var(--color-primary)]',
         variant === 'outline' &&

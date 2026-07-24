@@ -49,25 +49,11 @@ export function DocumentEditorPage() {
     };
   }, [documentType, candidateDetails, content, branding, templateConfig, saveStatus]);
 
-  // Initial Fetch or Auto-create new draft
+  // Initial Fetch or New Draft setup
   useEffect(() => {
     if (!documentId) {
-      const createInitialDraft = async () => {
-        try {
-          const { data: doc } = await documentsApi.create({
-            title: `${documentType === 'offer' ? 'Offer' : 'Joining'} Letter - ${candidateDetails?.candidateName || 'Draft'}`,
-            type: documentType === 'offer' ? 'OFFER_LETTER' : 'JOINING_LETTER',
-            status: 'draft',
-            candidateDetails,
-            contentJSON: { html: typeof content === 'string' ? content : '' },
-          });
-          setDocumentId(doc.id);
-          setSaveStatus('Saved');
-        } catch (e) {
-          console.error("Failed auto-creating initial draft", e);
-        }
-      };
-      createInitialDraft();
+      setDocumentId(null);
+      setSaveStatus('Unsaved Changes');
       return;
     }
 
@@ -93,7 +79,7 @@ export function DocumentEditorPage() {
     fetchDocument();
   }, [documentId, setDocumentId, setDocumentType, updateCandidateDetails, setContent, setSaveStatus]);
 
-  // Autosave
+  // Autosave (only if document exists in DB)
   useEffect(() => {
     if (isLoading || error || !documentId) return;
 
@@ -124,23 +110,25 @@ export function DocumentEditorPage() {
   }, [documentId, isLoading, error, setSaveStatus]);
 
   if (isLoading) {
-    return <div className="flex h-screen items-center justify-center bg-slate-50">Loading Document...</div>;
+    return <div className="flex h-screen items-center justify-center bg-slate-50 font-bold text-slate-500">Loading Document...</div>;
   }
 
   if (error) {
     return (
       <div className="flex h-screen items-center justify-center bg-slate-50 flex-col gap-4">
-        <p className="text-red-500 font-medium">{error}</p>
-        <button onClick={() => navigate('/documents')} className="px-4 py-2 bg-slate-900 text-white rounded-lg">Return to Dashboard</button>
+        <p className="text-rose-600 font-bold">{error}</p>
+        <button onClick={() => navigate('/documents')} className="px-5 py-2.5 bg-slate-900 text-white font-bold rounded-xl shadow-md hover:bg-slate-800 transition-all">
+          Return to Letters List
+        </button>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col w-full h-[calc(100vh-88px)] bg-[#F9FAFB]">
+    <div className="-mt-8 -mx-8 flex flex-col w-[calc(100%+64px)] h-[calc(100vh-64px)] bg-[#F9FAFB] overflow-hidden">
       <BuilderHeader />
       
-      <div className="flex w-full flex-1 overflow-hidden pt-2">
+      <div className="flex w-full flex-1 overflow-hidden">
         {/* Left Side: Wizard (40%) */}
         <div className="w-[40%] min-w-[380px] max-w-[600px] bg-white border-r border-slate-200 overflow-y-auto custom-scrollbar shadow-[4px_0_24px_rgba(0,0,0,0.02)] z-10 shrink-0 flex flex-col">
           <DocumentWizard />

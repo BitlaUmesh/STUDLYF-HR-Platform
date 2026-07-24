@@ -4,6 +4,7 @@ import { CalendarClock, X, ExternalLink, Search, User, Clock, RefreshCw } from '
 import { format } from 'date-fns';
 import { meetingsApi, type Meeting } from '../api/meetings';
 import { Card, PageHeader, EmptyState, Button, Input } from '../components/ui';
+import { ConfirmModal } from '../components/common/ConfirmModal';
 
 const STATUS_STYLE: Record<string, string> = {
   scheduled: 'text-amber-700 bg-amber-50 border-amber-200',
@@ -20,6 +21,10 @@ export function MeetingsPage() {
   const [activeTab, setActiveTab] = useState<FilterTab>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Cancel Modal state
+  const [cancelingMeeting, setCancelingMeeting] = useState<{ id: string; title: string } | null>(null);
+  const [cancelingBusy, setCancelingBusy] = useState(false);
+
   // Reschedule Modal state
   const [reschedulingMeeting, setReschedulingMeeting] = useState<Meeting | null>(null);
   const [newTime, setNewTime] = useState('');
@@ -32,10 +37,18 @@ export function MeetingsPage() {
 
   useEffect(load, []);
 
-  async function handleCancel(id: string, title: string) {
-    if (!window.confirm(`Are you sure you want to cancel the meeting "${title}"?`)) return;
-    await meetingsApi.cancel(id);
-    load();
+  async function handleConfirmCancel() {
+    if (!cancelingMeeting) return;
+    setCancelingBusy(true);
+    try {
+      await meetingsApi.cancel(cancelingMeeting.id);
+      setCancelingMeeting(null);
+      load();
+    } catch (err) {
+      console.error('Failed to cancel meeting', err);
+    } finally {
+      setCancelingBusy(false);
+    }
   }
 
   async function handleConfirmReschedule() {
@@ -176,8 +189,8 @@ export function MeetingsPage() {
                     </Button>
 
                     <button
-                      onClick={() => handleCancel(m.id, m.title)}
-                      className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors"
+                      onClick={() => setCancelingMeeting({ id: m.id, title: m.title })}
+                      className="inline-flex items-center gap-1 rounded-xl border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-bold text-rose-700 hover:bg-rose-100 transition-colors cursor-pointer"
                     >
                       <X size={13} /> Cancel
                     </button>
@@ -188,6 +201,19 @@ export function MeetingsPage() {
           ))}
         </div>
       )}
+
+      {/* Cancel Confirmation Modal */}
+      <ConfirmModal
+        isOpen={Boolean(cancelingMeeting)}
+        title="Cancel Meeting"
+        description={`Are you sure you want to cancel the meeting "${cancelingMeeting?.title}"?`}
+        confirmText="Cancel Meeting"
+        cancelText="Keep Meeting"
+        variant="danger"
+        loading={cancelingBusy}
+        onConfirm={handleConfirmCancel}
+        onClose={() => setCancelingMeeting(null)}
+      />
 
       {/* Reschedule Modal */}
       {reschedulingMeeting && (

@@ -33,6 +33,7 @@ model User {
   defaultBorderColor   String              @default("#2D136F")
   defaultLineSpacing   String              @default("1.25")
   defaultLetterSpacing String              @default("0px")
+  needsPasswordSetup   Boolean             @default(false)
   branding             CompanyBranding?
   documents            Document[]
   recentEdits          RecentEdit[]
@@ -243,4 +244,16 @@ model Message {
   sentAt    DateTime @default(now())
 
   @@index([hrId, studentId])
+}
+
+model OtpVerification {
+  id        String   @id @default(uuid())
+  email     String
+  otp       String
+  type      String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email, type])
+  @@map("otp_verifications")
 }

@@ -71,11 +71,14 @@ export function LoginPage() {
       {/* ── Left Branded Panel ── */}
       <div className="auth-brand-panel hidden lg:flex lg:w-[45%] flex-col justify-between p-12 relative">
         <div className="relative z-10">
-          <div className="flex items-center gap-3 mb-16">
-            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-indigo-600 shadow-lg">
-              <span className="font-display text-xl font-bold text-white">S</span>
+          <div className="flex items-center gap-3.5 mb-16">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-white/10 backdrop-blur-md border border-white/20 p-1.5 shadow-2xl shrink-0">
+              <img src="/logo-s.png" alt="S Logo" className="h-full w-full object-contain filter drop-shadow-lg" />
             </div>
-            <span className="font-display text-xl font-bold text-white">StudLyf HR</span>
+            <div className="flex flex-col">
+              <img src="/studlyf-logo-white.png" alt="STUDLYF" className="h-6 object-contain" />
+              <span className="text-[10px] font-bold text-slate-300 uppercase tracking-widest mt-0.5">HR Platform</span>
+            </div>
           </div>
 
           <h2 className="font-display text-4xl font-bold text-white leading-tight mb-4">
@@ -109,9 +112,11 @@ export function LoginPage() {
       <div className="flex flex-1 items-center justify-center bg-[var(--color-canvas)] px-6 py-12">
         <div className="w-full max-w-sm animate-fade-in-up">
           {/* Mobile logo */}
-          <div className="flex lg:hidden items-center gap-2.5 mb-8">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-600 font-display text-lg font-bold text-white">S</div>
-            <span className="font-display text-lg font-bold text-[var(--color-ink)]">StudLyf HR</span>
+          <div className="flex lg:hidden items-center gap-3 mb-8">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white border border-slate-200 p-1 shadow-sm shrink-0">
+              <img src="/logo-s.png" alt="S Logo" className="h-full w-full object-contain" />
+            </div>
+            <img src="/studlyf-logo.png" alt="STUDLYF" className="h-6 object-contain" />
           </div>
 
           <div className="mb-8">

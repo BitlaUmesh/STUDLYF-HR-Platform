@@ -58,20 +58,20 @@ export function SettingsPage() {
     try {
       await profileApi.update({
         fullName: profile.fullName,
-        profilePhoto: profile.profilePhoto || undefined,
-        phone: profile.phone || undefined,
-        designation: profile.designation || undefined,
-        city: profile.city || undefined,
-        state: profile.state || undefined,
-        country: profile.country || undefined,
-        companyAddress: profile.companyAddress || undefined,
-        companyPhone: profile.companyPhone || undefined,
-        companyEmail: profile.companyEmail || undefined,
-        companyWebsite: profile.companyWebsite || undefined,
-        defaultFont: profile.defaultFont || undefined,
-        defaultBorderColor: profile.defaultBorderColor || undefined,
-        defaultLineSpacing: profile.defaultLineSpacing || undefined,
-        defaultLetterSpacing: profile.defaultLetterSpacing || undefined,
+        profilePhoto: profile.profilePhoto ?? null,
+        phone: profile.phone ?? null,
+        designation: profile.designation ?? null,
+        city: profile.city ?? null,
+        state: profile.state ?? null,
+        country: profile.country ?? null,
+        companyAddress: profile.companyAddress ?? null,
+        companyPhone: profile.companyPhone ?? null,
+        companyEmail: profile.companyEmail ?? null,
+        companyWebsite: profile.companyWebsite ?? null,
+        defaultFont: profile.defaultFont ?? null,
+        defaultBorderColor: profile.defaultBorderColor ?? null,
+        defaultLineSpacing: profile.defaultLineSpacing ?? null,
+        defaultLetterSpacing: profile.defaultLetterSpacing ?? null,
       });
 
       if (profile.branding) {
@@ -264,7 +264,7 @@ export function SettingsPage() {
             <Avatar src={profile.profilePhoto} name={profile.fullName} size="xl" className="ring-4 ring-white shadow-sm" />
             <div className="space-y-2 text-center sm:text-left flex-1">
               <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">Profile Photo</h4>
-              <p className="text-xs text-slate-500">Upload a square PNG or JPG image, or paste an image URL.</p>
+              <p className="text-xs text-slate-500">Upload a square PNG or JPG image for your profile.</p>
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 pt-1">
                 <label className="cursor-pointer inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-3.5 py-2 text-xs font-bold text-white hover:bg-indigo-700 transition-colors shadow-2xs">
                   <Camera size={14} />
@@ -282,16 +282,6 @@ export function SettingsPage() {
                 )}
               </div>
             </div>
-          </div>
-
-          {/* Image URL Direct Input */}
-          <div>
-            <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Or Image URL</label>
-            <Input
-              value={profile.profilePhoto || ''}
-              onChange={(e) => update('profilePhoto', e.target.value)}
-              placeholder="https://example.com/photo.jpg"
-            />
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-5 pt-2">

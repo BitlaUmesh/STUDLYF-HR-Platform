@@ -186,6 +186,11 @@ const sendSchema = z.object({
   to_email: z.string().email(),
   subject: z.string().min(1),
   html_content: z.string().min(1),
+  attachment: z.object({
+    filename: z.string(),
+    content: z.string(), // base64
+    contentType: z.string(),
+  }).optional(),
 });
 
 // ── POST /api/documents/:id/send ─────────────────────────────────────────────
@@ -207,10 +212,12 @@ router.post('/:id/send', async (req, res, next) => {
       to: parsed.data.to_email,
       subject: parsed.data.subject,
       htmlContent: parsed.data.html_content,
+      attachment: parsed.data.attachment,
     });
 
     return res.status(200).json({ message: 'Email sent successfully!' });
   } catch (err) {
+    console.error('[SEND-EMAIL ERROR]', err?.message || err, err?.stack);
     next(err);
   }
 });

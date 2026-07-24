@@ -82,7 +82,7 @@ router.get('/:id', async (req, res, next) => {
         where: { id: req.params.id, hrId: req.hrId },
         include: {
           student: { include: { githubStats: true, projects: true } },
-          responses: { include: { question: true } },
+          screeningResponses: { include: { question: true } },
           meeting: true,
         },
       });
@@ -91,13 +91,18 @@ router.get('/:id', async (req, res, next) => {
         where: { id: req.params.id, hrId: req.hrId },
         include: {
           student: { include: { gitHubStats: true, hackathonProjects: true } },
-          responses: { include: { question: true } },
+          screeningResponses: { include: { question: true } },
           meeting: true,
         },
       });
     }
     if (!application) return res.status(404).json({ error: 'Application not found' });
-    return res.json(application);
+
+    const responseData = {
+      ...application,
+      responses: application.screeningResponses || [],
+    };
+    return res.json(responseData);
   } catch (err) {
     next(err);
   }

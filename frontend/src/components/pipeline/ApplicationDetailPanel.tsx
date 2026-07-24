@@ -21,6 +21,8 @@ export function ApplicationDetailPanel({
   onStatusChanged: () => void;
 }) {
   const [application, setApplication] = useState<ApplicationDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
   const [questions, setQuestions] = useState<ScreeningQuestion[]>([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
@@ -32,12 +34,23 @@ export function ApplicationDetailPanel({
   const [busy, setBusy] = useState(false);
 
   function load() {
-    applicationsApi.getById(applicationId).then(({ data }) => setApplication(data));
+    setLoading(true);
+    setError(null);
+    applicationsApi.getById(applicationId)
+      .then(({ data }) => {
+        setApplication(data);
+        setLoading(false);
+      })
+      .catch((err) => {
+        console.error('Failed to load candidate application detail', err);
+        setError(getErrorMessage(err, 'Could not load candidate details.'));
+        setLoading(false);
+      });
   }
 
   useEffect(load, [applicationId]);
   useEffect(() => {
-    questionsApi.list().then(({ data }) => setQuestions(data));
+    questionsApi.list().then(({ data }) => setQuestions(data)).catch(console.error);
   }, []);
 
   async function handleStatusChange(status: ApplicationStatus) {
@@ -127,16 +140,40 @@ export function ApplicationDetailPanel({
         <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4 bg-slate-50/50">
           <div>
             <h2 className="text-lg font-bold text-slate-900">
-              {application?.student.name || 'Loading…'}
+              {loading ? 'Loading Candidate...' : application?.student.name || 'Candidate Overview'}
             </h2>
-            <p className="text-xs font-medium text-slate-500">{application?.student.email}</p>
+            <p className="text-xs font-medium text-slate-500">
+              {loading ? 'Fetching dossier details' : application?.student.email || 'Application details'}
+            </p>
           </div>
           <button onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:text-slate-600 hover:bg-slate-200/50 transition-colors">
             <X size={18} />
           </button>
         </div>
 
-        {application && (
+        {loading && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-3">
+            <div className="h-8 w-8 animate-spin rounded-full border-3 border-primary border-t-transparent" />
+            <p className="text-xs font-bold text-slate-500">Loading candidate profile...</p>
+          </div>
+        )}
+
+        {error && !loading && (
+          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+            <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600">
+              <X size={24} />
+            </div>
+            <div className="space-y-1">
+              <p className="text-sm font-bold text-slate-900">Unable to load candidate details</p>
+              <p className="text-xs text-slate-500">{error}</p>
+            </div>
+            <Button size="sm" onClick={load} className="rounded-xl font-bold">
+              Try Again
+            </Button>
+          </div>
+        )}
+
+        {application && !loading && (
           <>
             <div className="flex flex-wrap gap-1.5 border-b border-slate-100 px-6 py-3 bg-slate-50/30">
               {APPLICATION_STATUSES.map((s) => (
