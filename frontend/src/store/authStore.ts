@@ -10,6 +10,8 @@ interface AuthState {
   signup: (payload: { fullName: string; email: string; password: string; companyName: string }) => Promise<void>;
   logout: () => Promise<void>;
   setUser: (user: HRUser | null) => void;
+  /** Call this on pages that Google OAuth redirects to (e.g. /dashboard?token=...) */
+  pickupTokenFromUrl: () => Promise<boolean>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -24,6 +26,31 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user: data, status: 'authenticated', error: null });
     } catch {
       set({ user: null, status: 'unauthenticated' });
+    }
+  },
+
+  /** Reads ?token= from the current URL, stores it, then calls /auth/me */
+  pickupTokenFromUrl: async () => {
+    const params = new URLSearchParams(window.location.search);
+    const token = params.get('token');
+    if (!token) return false;
+
+    // Store the token so the Axios interceptor attaches it as Bearer header
+    localStorage.setItem('auth_token', token);
+
+    // Remove token from URL bar (replace state so back-button doesn't replay it)
+    const cleanUrl = window.location.pathname;
+    window.history.replaceState({}, '', cleanUrl);
+
+    try {
+      set({ status: 'loading' });
+      const { data } = await authApi.me();
+      set({ user: data, status: 'authenticated', error: null });
+      return true;
+    } catch {
+      localStorage.removeItem('auth_token');
+      set({ user: null, status: 'unauthenticated' });
+      return false;
     }
   },
 
@@ -56,6 +83,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     try {
       await authApi.logout();
     } finally {
+      localStorage.removeItem('auth_token');
       set({ user: null, status: 'unauthenticated' });
     }
   },

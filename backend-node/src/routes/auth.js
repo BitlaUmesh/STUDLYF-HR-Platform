@@ -684,10 +684,17 @@ router.get('/google/callback', async (req, res, next) => {
 
     // If new Google user or needs password setup, redirect to /set-password
     if (isNewUser || user.needsPasswordSetup) {
-      return res.redirect(`${targetFrontend}/set-password?email=${encodeURIComponent(user.email)}`);
+      return res.redirect(
+        `${targetFrontend}/set-password?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(accessToken)}`
+      );
     }
 
-    return res.redirect(`${targetFrontend}/dashboard`);
+    // Embed access token in the redirect URL so the frontend can store it in
+    // localStorage. This is needed because the cookie is set on the Render domain
+    // but the frontend is on the Vercel domain — cross-site cookies are blocked
+    // by modern browsers even with SameSite=None when the Vercel proxy isn't used
+    // for the OAuth redirect chain.
+    return res.redirect(`${targetFrontend}/dashboard?token=${encodeURIComponent(accessToken)}`);
   } catch (err) {
     next(err);
   }

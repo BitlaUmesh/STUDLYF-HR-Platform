@@ -22,10 +22,18 @@ import { SettingsPage } from './pages/SettingsPage';
 
 export default function App() {
   const init = useAuthStore((s) => s.init);
+  const pickupTokenFromUrl = useAuthStore((s) => s.pickupTokenFromUrl);
 
   useEffect(() => {
-    init();
-  }, [init]);
+    // If landing from Google OAuth redirect (URL has ?token=...), consume that
+    // token first and set auth state — skip the normal init() to avoid a race.
+    pickupTokenFromUrl().then((didPickup) => {
+      if (!didPickup) {
+        // Normal startup — verify session via cookie / Bearer header
+        init();
+      }
+    });
+  }, [init, pickupTokenFromUrl]);
 
   return (
     <BrowserRouter>

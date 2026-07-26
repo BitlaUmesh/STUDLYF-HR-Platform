@@ -3,7 +3,11 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { Button, Input } from '../components/ui';
-import { getErrorMessage, API_BASE_URL } from '../api/client';
+import { getErrorMessage } from '../api/client';
+
+// Direct backend URL for OAuth — must NOT go through Vercel proxy because
+// Google OAuth follows real 302 redirect chains that a proxy breaks.
+const BACKEND_URL = 'https://studlyf-hr-platform.onrender.com';
 
 const FEATURES = [
   { emoji: '🎯', text: 'AI-powered talent matching across 1000+ profiles' },
@@ -63,7 +67,9 @@ export function LoginPage() {
   }
 
   function handleGoogleLogin() {
-    window.location.href = `${API_BASE_URL}/auth/google`;
+    // Navigate directly to the Render backend — NOT through the Vercel /api proxy.
+    // Google OAuth requires real HTTP 302 redirects which a reverse proxy breaks.
+    window.location.href = `${BACKEND_URL}/api/auth/google`;
   }
 
   return (
