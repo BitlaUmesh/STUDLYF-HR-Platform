@@ -3,9 +3,20 @@ import axios from 'axios';
 const isBrowser = typeof window !== 'undefined';
 const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
+// On Vercel deployments (*.vercel.app or custom domain routed through Vercel), always use the
+// relative /api path so requests go through the Vercel rewrite proxy defined in vercel.json.
+// This keeps cookies same-origin. NEVER use an absolute cross-site URL on Vercel.
+const isVercel = isBrowser && (
+  window.location.hostname.endsWith('.vercel.app') ||
+  // Also catch preview deployments
+  /^studlyf-hr-platform/.test(window.location.hostname)
+);
+
 export const API_BASE_URL = isLocalhost
   ? 'http://localhost:3001/api'
-  : (import.meta.env.VITE_API_BASE_URL || '/api');
+  : isVercel
+    ? '/api'
+    : (import.meta.env.VITE_API_BASE_URL || '/api');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,

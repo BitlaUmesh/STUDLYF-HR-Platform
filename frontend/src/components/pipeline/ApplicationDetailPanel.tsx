@@ -8,7 +8,8 @@ import { meetingsApi } from '../../api/meetings';
 import { messagesApi } from '../../api/messages';
 import { LanguageFingerprint } from '../students/LanguageFingerprint';
 import { Button, Textarea, Input, StatusBadge } from '../ui';
-import { getErrorMessage } from '../../api/client';
+import { getErrorMessage, API_BASE_URL } from '../../api/client';
+import { pipelineLogger } from '../../utils/pipelineLogger';
 
 type Tab = 'overview' | 'questions' | 'meeting' | 'message';
 
@@ -24,6 +25,7 @@ export function ApplicationDetailPanel({
   const [application, setApplication] = useState<ApplicationDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [debugInfo, setDebugInfo] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
   const [questions, setQuestions] = useState<ScreeningQuestion[]>([]);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<string[]>([]);
@@ -37,15 +39,34 @@ export function ApplicationDetailPanel({
   function load() {
     setLoading(true);
     setError(null);
+    setDebugInfo(null);
+
+    pipelineLogger.info('load', `Starting load for applicationId=${applicationId}`, {
+      apiBaseUrl: API_BASE_URL,
+      hostname: window.location.hostname,
+      hasToken: !!localStorage.getItem('auth_token'),
+    });
+
     applicationsApi.getById(applicationId)
       .then(({ data }) => {
+        pipelineLogger.info('load', 'Primary GET /applications/:id succeeded', {
+          applicationId: data.id,
+          studentName: data.student?.name,
+        });
         setApplication(data);
         setLoading(false);
       })
       .catch((err) => {
-        console.warn('Primary application fetch failed, attempting student dossier fallback:', err);
+        const serialized = pipelineLogger.serializeError(err);
+        pipelineLogger.warn('load', 'Primary GET /applications/:id failed — trying student fallback', serialized);
+
+        // Attempt student fallback
         studentsApi.getById(applicationId)
           .then(({ data: studentData }) => {
+            pipelineLogger.info('load', 'Student fallback GET /students/:id succeeded', {
+              studentId: studentData.id,
+              name: studentData.name,
+            });
             const fallbackApp: ApplicationDetail = {
               id: applicationId,
               hrId: '',
@@ -71,7 +92,12 @@ export function ApplicationDetailPanel({
             setLoading(false);
           })
           .catch((studentErr) => {
-            console.error('Failed to load candidate application detail', studentErr);
+            const s1 = pipelineLogger.serializeError(err);
+            const s2 = pipelineLogger.serializeError(studentErr);
+            pipelineLogger.error('load', 'Both primary and fallback fetch failed', { primary: s1, fallback: s2 });
+
+            const debugStr = JSON.stringify({ primary: s1, fallback: s2 }, null, 2);
+            setDebugInfo(debugStr);
             setError(getErrorMessage(err, 'Could not load candidate details.'));
             setLoading(false);
           });
@@ -189,7 +215,7 @@ export function ApplicationDetailPanel({
         )}
 
         {error && !loading && (
-          <div className="flex-1 flex flex-col items-center justify-center p-8 text-center space-y-4">
+          <div className="flex-1 flex flex-col items-center justify-center p-6 text-center space-y-4">
             <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600">
               <X size={24} />
             </div>
@@ -204,8 +230,22 @@ export function ApplicationDetailPanel({
             <Button size="sm" onClick={load} className="rounded-xl font-bold">
               Try Again
             </Button>
+            {debugInfo && (
+              <details className="w-full text-left mt-2">
+                <summary className="cursor-pointer text-xs font-bold text-slate-500 hover:text-slate-700 select-none">
+                  ▶ Show error details (for debugging)
+                </summary>
+                <pre
+                  className="mt-2 w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-[10px] leading-relaxed text-slate-700 whitespace-pre-wrap break-all"
+                  style={{ maxHeight: '300px', overflowY: 'auto' }}
+                >
+                  {debugInfo}
+                </pre>
+              </details>
+            )}
           </div>
         )}
+
 
         {application && !loading && (
           <>
