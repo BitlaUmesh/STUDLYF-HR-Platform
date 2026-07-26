@@ -14,3 +14,5 @@ services:
         value: https://studlyf-hr-platform.vercel.app
       - key: GITHUB_REDIRECT_URL
         value: https://studlyf-hr-platform.onrender.com/api/auth/github/callback
+      - key: GOOGLE_REDIRECT_URI
+        value: https://studlyf-hr-platform.onrender.com/api/auth/google/callback

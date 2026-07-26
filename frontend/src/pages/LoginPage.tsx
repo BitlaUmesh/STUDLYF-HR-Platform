@@ -37,6 +37,27 @@ export function LoginPage() {
     }
   }, []);
 
+  // Read ?error= param set by backend OAuth error redirects
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const errorCode = params.get('error');
+    if (errorCode) {
+      const errorMessages: Record<string, string> = {
+        google_not_configured: 'Google sign-in is not configured. Please use email/password.',
+        google_denied: 'Google sign-in was cancelled.',
+        google_no_code: 'Google sign-in failed — missing auth code.',
+        google_token_failed: 'Google sign-in failed — could not verify credentials. Make sure your Google OAuth redirect URI is correctly set in Google Cloud Console.',
+        google_no_access_token: 'Google sign-in failed — no access token received.',
+        google_profile_failed: 'Google sign-in failed — could not fetch your profile.',
+        google_no_email: 'Google sign-in failed — your Google account has no email.',
+        google_unexpected: 'Google sign-in failed unexpectedly. Please try again.',
+      };
+      setError(errorMessages[errorCode] || `Sign-in error: ${errorCode}`);
+      // Clean the URL
+      window.history.replaceState({}, '', '/login');
+    }
+  }, []);
+
   // Rotate feature highlights
   useEffect(() => {
     const interval = setInterval(() => {

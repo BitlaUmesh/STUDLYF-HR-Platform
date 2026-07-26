@@ -603,16 +603,23 @@ router.post('/set-google-password', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // Google OAuth — Step 1: Redirect to Google
 // GET /api/auth/google
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/google', (req, res) => {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   if (!clientId) {
-    return res.status(503).json({ error: 'Google OAuth is not configured on this server.' });
+    // Redirect to frontend with error so user sees a readable message
+    const frontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
+    return res.redirect(`${frontend}/login?error=google_not_configured`);
   }
-  const defaultRedirect = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || defaultRedirect;
+
+  // Always use the explicit env var so the redirect_uri is stable and matches
+  // what is registered in Google Cloud Console.
+  const redirectUri = process.env.GOOGLE_REDIRECT_URI
+    || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -629,31 +636,61 @@ router.get('/google', (req, res) => {
 // GET /api/auth/google/callback
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/google/callback', async (req, res, next) => {
-  try {
-    const { code } = req.query;
-    if (!code) return res.status(400).json({ error: 'Missing OAuth code from Google' });
+  const targetFrontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 
-    const defaultRedirect = `${req.protocol}://${req.get('host')}/api/auth/google/callback`;
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI || process.env.GOOGLE_REDIRECT_URL || defaultRedirect;
+  try {
+    const { code, error: oauthError } = req.query;
+
+    // Google returned an error (e.g. user denied permission)
+    if (oauthError) {
+      console.warn('[Google OAuth] Google returned error:', oauthError);
+      return res.redirect(`${targetFrontend}/login?error=google_denied`);
+    }
+
+    if (!code) {
+      return res.redirect(`${targetFrontend}/login?error=google_no_code`);
+    }
+
+    // Must exactly match what was sent in Step 1
+    const redirectUri = process.env.GOOGLE_REDIRECT_URI
+      || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
 
     // Exchange code for tokens
-    const tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
-      code,
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      redirect_uri: redirectUri,
-      grant_type: 'authorization_code',
-    });
+    let tokenRes;
+    try {
+      tokenRes = await axios.post('https://oauth2.googleapis.com/token', {
+        code,
+        client_id: process.env.GOOGLE_CLIENT_ID,
+        client_secret: process.env.GOOGLE_CLIENT_SECRET,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      });
+    } catch (tokenErr) {
+      console.error('[Google OAuth] Token exchange failed:', tokenErr?.response?.data || tokenErr.message);
+      return res.redirect(`${targetFrontend}/login?error=google_token_failed`);
+    }
 
     const { access_token: googleAccessToken } = tokenRes.data;
+    if (!googleAccessToken) {
+      return res.redirect(`${targetFrontend}/login?error=google_no_access_token`);
+    }
 
     // Fetch Google user profile
-    const { data: googleUser } = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
-      headers: { Authorization: `Bearer ${googleAccessToken}` },
-    });
+    let googleUser;
+    try {
+      const profileRes = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+        headers: { Authorization: `Bearer ${googleAccessToken}` },
+      });
+      googleUser = profileRes.data;
+    } catch (profileErr) {
+      console.error('[Google OAuth] Profile fetch failed:', profileErr.message);
+      return res.redirect(`${targetFrontend}/login?error=google_profile_failed`);
+    }
 
     const { email, name, picture } = googleUser;
-    if (!email) return res.status(400).json({ error: 'Could not retrieve email from Google' });
+    if (!email) {
+      return res.redirect(`${targetFrontend}/login?error=google_no_email`);
+    }
 
     let user = await prisma.user.findUnique({ where: { email } });
     let isNewUser = false;
@@ -677,27 +714,27 @@ router.get('/google/callback', async (req, res, next) => {
 
     const accessToken = createAccessToken(user.id);
     const refreshToken = createRefreshToken(user.id);
+
+    // Set cookies (will work if same domain; also passing token in URL as fallback
+    // since the frontend is on Vercel and the backend is on Render — cross-site)
     res.cookie('access_token', accessToken, cookieOptions(24 * 60 * 60 * 1000));
     res.cookie('refresh_token', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
-
-    const targetFrontend = (process.env.FRONTEND_URL || 'http://localhost:3000').replace(/\/$/, '');
 
     // If new Google user or needs password setup, redirect to /set-password
     if (isNewUser || user.needsPasswordSetup) {
       return res.redirect(
-        `${targetFrontend}/set-password?email=${encodeURIComponent(user.email)}&token=${encodeURIComponent(accessToken)}`
+        `${targetFrontend}/set-password?email=${encodeURIComponent(email)}&token=${encodeURIComponent(accessToken)}`
       );
     }
 
-    // Embed access token in the redirect URL so the frontend can store it in
-    // localStorage. This is needed because the cookie is set on the Render domain
-    // but the frontend is on the Vercel domain — cross-site cookies are blocked
-    // by modern browsers even with SameSite=None when the Vercel proxy isn't used
-    // for the OAuth redirect chain.
+    // Embed access token in URL so the Vercel frontend can store it in
+    // localStorage (cross-site cookies are blocked by browsers)
     return res.redirect(`${targetFrontend}/dashboard?token=${encodeURIComponent(accessToken)}`);
   } catch (err) {
-    next(err);
+    console.error('[Google OAuth] Unexpected error:', err.message);
+    return res.redirect(`${targetFrontend}/login?error=google_unexpected`);
   }
 });
 
 module.exports = router;
+
