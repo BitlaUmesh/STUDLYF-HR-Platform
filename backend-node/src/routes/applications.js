@@ -60,8 +60,8 @@ router.get('/:id', async (req, res, next) => {
   try {
     let application;
     try {
-      application = await prisma.application.findFirst({
-        where: { id: req.params.id, hrId: req.hrId },
+      application = await prisma.application.findUnique({
+        where: { id: req.params.id },
         include: {
           student: { include: { githubStats: true, projects: true } },
           screeningResponses: { include: { question: true } },
@@ -69,9 +69,9 @@ router.get('/:id', async (req, res, next) => {
         },
       });
     } catch (primaryErr) {
-      console.warn('[Application GET /:id] Full query failed, falling back to minimal include:', primaryErr.message);
-      application = await prisma.application.findFirst({
-        where: { id: req.params.id, hrId: req.hrId },
+      console.warn('[Application GET /:id] Full query failed, trying minimal include:', primaryErr.message);
+      application = await prisma.application.findUnique({
+        where: { id: req.params.id },
         include: {
           student: true,
           meeting: true,
@@ -79,7 +79,16 @@ router.get('/:id', async (req, res, next) => {
       });
     }
 
-    if (!application) return res.status(404).json({ error: 'Application not found' });
+    if (!application) {
+      return res.status(404).json({ error: 'Candidate application details not found.' });
+    }
+
+    // Defensive fallback defaults for student properties to guarantee clean rendering
+    if (application.student) {
+      application.student.skills = application.student.skills || [];
+      application.student.projects = application.student.projects || [];
+      application.student.githubStats = application.student.githubStats || null;
+    }
 
     const responseData = {
       ...application,
