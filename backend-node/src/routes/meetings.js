@@ -1,11 +1,10 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { createOneOffMeeting, cancelMeeting, verifyWebhookSignature } = require('../services/calendly');
 const { sendMeetingInvite, sendMeetingCancellation } = require('../services/email');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // ── POST /api/meetings/ ───────────────────────────────────────────────────────
 router.post('/', authenticate, async (req, res, next) => {

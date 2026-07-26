@@ -1,9 +1,8 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { authenticate, authenticateStudent } = require('../middleware/auth');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // ── GET /api/questions/ ───────────────────────────────────────────────────────
 // Get all screening questions for the HR

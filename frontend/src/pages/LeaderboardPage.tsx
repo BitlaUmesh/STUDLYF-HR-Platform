@@ -161,7 +161,6 @@ function RankRow({ entry, rank }: { entry: LeaderboardEntry; rank: number }) {
 
 export function LeaderboardPage() {
   const [entries, setEntries] = useState<LeaderboardEntry[] | null>(null);
-  const [meta, setMeta] = useState<{ lastRefreshedAt?: string; nextRefreshAt?: string } | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
   function loadLeaderboard(force = false) {
@@ -169,10 +168,6 @@ export function LeaderboardPage() {
     studentsApi.leaderboard(5, force)
       .then(({ data }) => {
         setEntries(data.leaderboard);
-        setMeta({
-          lastRefreshedAt: data.lastRefreshedAt,
-          nextRefreshAt: data.nextRefreshAt,
-        });
       })
       .catch(console.error)
       .finally(() => setIsRefreshing(false));
@@ -180,13 +175,6 @@ export function LeaderboardPage() {
 
   useEffect(() => {
     loadLeaderboard(false);
-
-    // Auto-refresh on frontend every 2 hours
-    const interval = setInterval(() => {
-      loadLeaderboard(false);
-    }, 2 * 60 * 60 * 1000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const podium = entries?.slice(0, 3) ?? [];
@@ -216,35 +204,6 @@ export function LeaderboardPage() {
           </div>
         }
       />
-
-      {/* Automatic 2-Hour Refresh Metadata Badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-gradient-to-r from-slate-900 to-indigo-950 p-4 rounded-2xl text-white shadow-md">
-        <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-xl bg-white/10 text-amber-400">
-            <RefreshCw size={16} className={isRefreshing ? 'animate-spin' : ''} />
-          </div>
-          <div>
-            <p className="text-xs font-extrabold text-white flex items-center gap-2">
-              Automatic 2-Hour Refresh Schedule
-              <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full border border-emerald-500/30">
-                ACTIVE
-              </span>
-            </p>
-            <p className="text-[11px] font-medium text-slate-300">
-              Rankings and GitHub scores automatically recalculate every 2 hours.
-            </p>
-          </div>
-        </div>
-
-        {meta?.lastRefreshedAt && (
-          <div className="text-right text-xs font-medium text-slate-300 shrink-0 border-t sm:border-t-0 sm:border-l border-white/10 pt-2 sm:pt-0 sm:pl-4">
-            <p className="text-[11px]">Last Refreshed: <span className="font-bold text-amber-300">{new Date(meta.lastRefreshedAt).toLocaleTimeString()}</span></p>
-            {meta.nextRefreshAt && (
-              <p className="text-[10px] text-slate-400">Next update at: {new Date(meta.nextRefreshAt).toLocaleTimeString()}</p>
-            )}
-          </div>
-        )}
-      </div>
 
       {entries === null ? (
         <div className="space-y-6">

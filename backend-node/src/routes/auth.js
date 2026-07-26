@@ -3,12 +3,11 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const axios = require('axios');
 const nodemailer = require('nodemailer');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { z } = require('zod');
 const { authLimiter, signupLimiter } = require('../middleware/ratelimit');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 const isProd = process.env.ENVIRONMENT === 'production';
 

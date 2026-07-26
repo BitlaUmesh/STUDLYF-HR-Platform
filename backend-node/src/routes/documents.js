@@ -1,11 +1,10 @@
 const express = require('express');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 const { z } = require('zod');
 const { authenticate } = require('../middleware/auth');
 const { sendDocumentEmail } = require('../services/email');
 
 const router = express.Router();
-const prisma = new PrismaClient();
 
 // All document routes require HR authentication
 router.use(authenticate);

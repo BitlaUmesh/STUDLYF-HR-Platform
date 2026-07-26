@@ -7,8 +7,8 @@ const router = express.Router();
 
 // ─── Leaderboard Scoring Algorithm ───────────────────────────────────────────
 function computeScore(student, ghStatsRaw, projsRaw) {
-  const githubStats = ghStatsRaw || student.githubStats || student.gitHubStats;
-  const projects = projsRaw || student.projects || student.hackathonProjects || [];
+  const githubStats = ghStatsRaw || student.githubStats;
+  const projects = projsRaw || student.projects || [];
 
   // Average jury rating (0–10 scale) → 40%
   const avgRating = projects.length
@@ -34,25 +34,17 @@ function computeScore(student, ghStatsRaw, projsRaw) {
 }
 
 function extractStudentData(student) {
-  const githubStats = student.githubStats || student.gitHubStats || null;
-  const projects = student.projects || student.hackathonProjects || [];
+  const githubStats = student.githubStats || null;
+  const projects = student.projects || [];
   return { githubStats, projects };
 }
 
 async function fetchStudentsWithIncludes(where = {}, options = {}) {
-  try {
-    return await prisma.student.findMany({
-      where,
-      ...options,
-      include: { githubStats: true, projects: true },
-    });
-  } catch (err) {
-    return await prisma.student.findMany({
-      where,
-      ...options,
-      include: { gitHubStats: true, hackathonProjects: true },
-    });
-  }
+  return await prisma.student.findMany({
+    where,
+    ...options,
+    include: { githubStats: true, projects: true },
+  });
 }
 
 // ── GET /api/students/search?q=AIML,Frontend ──────────────────────────────────
@@ -220,18 +212,10 @@ router.get('/leaderboard', authenticate, async (req, res, next) => {
 // ── GET /api/students/:id ─────────────────────────────────────────────────────
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    let student;
-    try {
-      student = await prisma.student.findUnique({
-        where: { id: req.params.id },
-        include: { githubStats: true, projects: { orderBy: { juryRating: 'desc' } } },
-      });
-    } catch {
-      student = await prisma.student.findUnique({
-        where: { id: req.params.id },
-        include: { gitHubStats: true, hackathonProjects: { orderBy: { juryRating: 'desc' } } },
-      });
-    }
+    const student = await prisma.student.findUnique({
+      where: { id: req.params.id },
+      include: { githubStats: true, projects: { orderBy: { juryRating: 'desc' } } },
+    });
 
     if (!student) return res.status(404).json({ error: 'Student not found' });
 

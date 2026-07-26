@@ -1,7 +1,6 @@
 const axios = require('axios');
-const { PrismaClient } = require('@prisma/client');
+const prisma = require('../db');
 
-const prisma = new PrismaClient();
 const GH_API = 'https://api.github.com';
 
 /**
