@@ -41,12 +41,49 @@ export function ApplicationDetailPanel({
     setError(null);
     setDebugInfo(null);
 
-    pipelineLogger.info('load', `Starting load for applicationId=${applicationId}`, {
+    const diagUrl = `${API_BASE_URL}/applications/${applicationId}`;
+    const token = localStorage.getItem('auth_token');
+
+    pipelineLogger.info('load', `Starting load — diagUrl=${diagUrl}`, {
       apiBaseUrl: API_BASE_URL,
       hostname: window.location.hostname,
-      hasToken: !!localStorage.getItem('auth_token'),
+      hasToken: !!token,
     });
 
+    // Step 1: raw fetch to capture the exact HTTP status + body before Axios touches it
+    fetch(diagUrl, {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+    })
+      .then(async (raw) => {
+        let body: unknown;
+        try { body = await raw.clone().json(); } catch { body = await raw.text(); }
+        const diag = {
+          status: raw.status,
+          statusText: raw.statusText,
+          url: raw.url,
+          body,
+          cookies: document.cookie || '(none readable — HttpOnly)',
+          hasBearerToken: !!token,
+        };
+        pipelineLogger.info('diag', `Raw fetch completed: HTTP ${raw.status}`, diag);
+
+        if (!raw.ok) {
+          // Show the raw diagnostic immediately so we can read it
+          setDebugInfo(JSON.stringify(diag, null, 2));
+          pipelineLogger.error('diag', `HTTP ${raw.status} — see debugInfo in panel`, diag);
+        }
+      })
+      .catch((fetchErr) => {
+        pipelineLogger.error('diag', 'Raw fetch threw (network error / CORS)', { err: String(fetchErr) });
+        setDebugInfo(JSON.stringify({ networkError: String(fetchErr), url: diagUrl }, null, 2));
+      });
+
+    // Step 2: proceed with the normal Axios flow
     applicationsApi.getById(applicationId)
       .then(({ data }) => {
         pipelineLogger.info('load', 'Primary GET /applications/:id succeeded', {
@@ -54,6 +91,7 @@ export function ApplicationDetailPanel({
           studentName: data.student?.name,
         });
         setApplication(data);
+        setDebugInfo(null);   // clear diagnostic on success
         setLoading(false);
       })
       .catch((err) => {
@@ -89,6 +127,7 @@ export function ApplicationDetailPanel({
               meeting: null,
             };
             setApplication(fallbackApp);
+            setDebugInfo(null);
             setLoading(false);
           })
           .catch((studentErr) => {
@@ -97,7 +136,7 @@ export function ApplicationDetailPanel({
             pipelineLogger.error('load', 'Both primary and fallback fetch failed', { primary: s1, fallback: s2 });
 
             const debugStr = JSON.stringify({ primary: s1, fallback: s2 }, null, 2);
-            setDebugInfo(debugStr);
+            setDebugInfo((prev) => prev || debugStr);   // prefer raw fetch diag if already set
             setError(getErrorMessage(err, 'Could not load candidate details.'));
             setLoading(false);
           });
@@ -231,18 +270,14 @@ export function ApplicationDetailPanel({
               Try Again
             </Button>
             {debugInfo && (
-              <details className="w-full text-left mt-2">
-                <summary className="cursor-pointer text-xs font-bold text-slate-500 hover:text-slate-700 select-none">
-                  ▶ Show error details (for debugging)
-                </summary>
-                <pre
-                  className="mt-2 w-full overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-[10px] leading-relaxed text-slate-700 whitespace-pre-wrap break-all"
-                  style={{ maxHeight: '300px', overflowY: 'auto' }}
-                >
-                  {debugInfo}
-                </pre>
-              </details>
+              <pre
+                className="mt-2 w-full overflow-x-auto rounded-lg border border-amber-200 bg-amber-50 p-3 text-[10px] leading-relaxed text-slate-700 whitespace-pre-wrap break-all text-left"
+                style={{ maxHeight: '260px', overflowY: 'auto' }}
+              >
+                {debugInfo}
+              </pre>
             )}
+
           </div>
         )}
 
