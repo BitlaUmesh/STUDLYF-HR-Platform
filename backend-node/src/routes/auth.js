@@ -116,6 +116,7 @@ router.post('/login', authLimiter, async (req, res, next) => {
 
     return res.json({
       message: 'Login successful',
+      token: accessToken,
       user: { id: user.id, email: user.email, fullName: user.fullName },
     });
   } catch (err) {
@@ -128,7 +129,14 @@ router.post('/login', authLimiter, async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/refresh', async (req, res, next) => {
   try {
-    const token = req.cookies?.refresh_token;
+    let token = req.cookies?.refresh_token;
+    if (!token && req.headers.authorization) {
+      const parts = req.headers.authorization.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        token = parts[1];
+      }
+    }
+
     if (!token) {
       return res.status(401).json({ error: 'No refresh token' });
     }
@@ -148,7 +156,7 @@ router.post('/refresh', async (req, res, next) => {
     const newAccessToken = createAccessToken(user.id);
     res.cookie('access_token', newAccessToken, cookieOptions(24 * 60 * 60 * 1000));
 
-    return res.json({ message: 'Token refreshed successfully' });
+    return res.json({ message: 'Token refreshed successfully', token: newAccessToken });
   } catch (err) {
     next(err);
   }
@@ -168,7 +176,14 @@ router.post('/logout', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/me', async (req, res, next) => {
   try {
-    const token = req.cookies?.access_token;
+    let token = req.cookies?.access_token;
+    if (!token && req.headers.authorization) {
+      const parts = req.headers.authorization.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer') {
+        token = parts[1];
+      }
+    }
+
     if (!token) return res.status(401).json({ error: 'Not authenticated' });
 
     let payload;

@@ -2,16 +2,26 @@ import axios from 'axios';
 
 const isBrowser = typeof window !== 'undefined';
 const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-const isVercel = isBrowser && window.location.hostname.endsWith('vercel.app');
 
 export const API_BASE_URL = isLocalhost
   ? 'http://localhost:3001/api'
-  : (import.meta.env.VITE_API_BASE_URL || (isVercel ? 'https://studlyf-hr-platform.onrender.com/api' : '/api'));
+  : (import.meta.env.VITE_API_BASE_URL || '/api');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   withCredentials: true, // send httpOnly cookies (access_token / refresh_token)
   headers: { 'Content-Type': 'application/json' },
+});
+
+// Attach Authorization Bearer header if available in localStorage
+apiClient.interceptors.request.use((config) => {
+  if (isBrowser) {
+    const token = localStorage.getItem('auth_token');
+    if (token && !config.headers.Authorization) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
 });
 
 let isRefreshing = false;
@@ -23,7 +33,13 @@ function flushQueue() {
 }
 
 apiClient.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // Save token if returned by auth endpoints
+    if (isBrowser && response.data?.token && typeof response.data.token === 'string') {
+      localStorage.setItem('auth_token', response.data.token);
+    }
+    return response;
+  },
   async (error) => {
     const original = error.config;
 
@@ -45,13 +61,19 @@ apiClient.interceptors.response.use(
 
       isRefreshing = true;
       try {
-        await apiClient.post('/auth/refresh');
+        const { data } = await apiClient.post('/auth/refresh');
+        if (isBrowser && data?.token) {
+          localStorage.setItem('auth_token', data.token);
+        }
         isRefreshing = false;
         flushQueue();
         return apiClient(original);
       } catch {
         isRefreshing = false;
         flushQueue();
+        if (isBrowser) {
+          localStorage.removeItem('auth_token');
+        }
         // Refresh failed silently — dispatch logout
         window.dispatchEvent(new CustomEvent('auth:logout'));
         return Promise.reject(new Error('Session expired. Please sign in again.'));
