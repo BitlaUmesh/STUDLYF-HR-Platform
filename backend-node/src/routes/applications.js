@@ -59,6 +59,8 @@ router.get('/', async (req, res, next) => {
 router.get('/:id', async (req, res, next) => {
   try {
     let application;
+    
+    // Tier 1: Look up by Application ID
     try {
       application = await prisma.application.findUnique({
         where: { id: req.params.id },
@@ -69,7 +71,7 @@ router.get('/:id', async (req, res, next) => {
         },
       });
     } catch (primaryErr) {
-      console.warn('[Application GET /:id] Full query failed, trying minimal include:', primaryErr.message);
+      console.warn('[Application GET /:id] Full query by ID failed, trying minimal include:', primaryErr.message);
       application = await prisma.application.findUnique({
         where: { id: req.params.id },
         include: {
@@ -79,8 +81,47 @@ router.get('/:id', async (req, res, next) => {
       });
     }
 
+    // Tier 2: Look up by Student ID if Application ID didn't match
     if (!application) {
-      return res.status(404).json({ error: 'Candidate application details not found.' });
+      try {
+        application = await prisma.application.findFirst({
+          where: { studentId: req.params.id },
+          include: {
+            student: { include: { githubStats: true, projects: true } },
+            screeningResponses: { include: { question: true } },
+            meeting: true,
+          },
+        });
+      } catch (studentIdErr) {
+        console.warn('[Application GET /:id] Lookup by studentId failed:', studentIdErr.message);
+      }
+    }
+
+    // Tier 3: Find student directly and generate application dossier view
+    if (!application) {
+      const student = await prisma.student.findUnique({
+        where: { id: req.params.id },
+        include: { githubStats: true, projects: true },
+      });
+
+      if (student) {
+        application = {
+          id: `app-${student.id}`,
+          hrId: req.hrId || '',
+          studentId: student.id,
+          status: 'invited',
+          notes: null,
+          createdAt: student.createdAt || new Date(),
+          updatedAt: student.updatedAt || new Date(),
+          student,
+          screeningResponses: [],
+          meeting: null,
+        };
+      }
+    }
+
+    if (!application) {
+      return res.status(404).json({ error: 'Candidate details not found.' });
     }
 
     // Defensive fallback defaults for student properties to guarantee clean rendering

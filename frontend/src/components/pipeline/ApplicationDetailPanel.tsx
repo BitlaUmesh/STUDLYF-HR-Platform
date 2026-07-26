@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { X, Send, CalendarPlus, ListChecks, Code2, Star, GitFork, ExternalLink, Mail } from 'lucide-react';
 import { applicationsApi, type ApplicationDetail, type ApplicationStatus, APPLICATION_STATUSES, STATUS_LABELS } from '../../api/applications';
+import { studentsApi } from '../../api/students';
 import { questionsApi, type ScreeningQuestion } from '../../api/questions';
 import { meetingsApi } from '../../api/meetings';
 import { messagesApi } from '../../api/messages';
@@ -42,9 +43,38 @@ export function ApplicationDetailPanel({
         setLoading(false);
       })
       .catch((err) => {
-        console.error('Failed to load candidate application detail', err);
-        setError(getErrorMessage(err, 'Could not load candidate details.'));
-        setLoading(false);
+        console.warn('Primary application fetch failed, attempting student dossier fallback:', err);
+        studentsApi.getById(applicationId)
+          .then(({ data: studentData }) => {
+            const fallbackApp: ApplicationDetail = {
+              id: applicationId,
+              hrId: '',
+              studentId: studentData.id,
+              status: (studentData.applicationStatus as ApplicationStatus) || 'invited',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              student: {
+                id: studentData.id,
+                name: studentData.name,
+                email: studentData.email,
+                bio: studentData.bio,
+                skills: studentData.skills || [],
+                avatarUrl: studentData.avatarUrl,
+                githubUsername: studentData.githubUsername,
+                githubStats: studentData.githubStats || null,
+                projects: studentData.projects || [],
+              },
+              responses: [],
+              meeting: null,
+            };
+            setApplication(fallbackApp);
+            setLoading(false);
+          })
+          .catch((studentErr) => {
+            console.error('Failed to load candidate application detail', studentErr);
+            setError(getErrorMessage(err, 'Could not load candidate details.'));
+            setLoading(false);
+          });
       });
   }
 
