@@ -5,10 +5,6 @@ import { useAuthStore } from '../store/authStore';
 import { Button, Input } from '../components/ui';
 import { getErrorMessage } from '../api/client';
 
-// Direct backend URL for OAuth — must NOT go through Vercel proxy because
-// Google OAuth follows real 302 redirect chains that a proxy breaks.
-const BACKEND_URL = 'https://studlyf-hr-platform.onrender.com';
-
 const FEATURES = [
   { emoji: '🎯', text: 'AI-powered talent matching across 1000+ profiles' },
   { emoji: '🏆', text: 'Real-time GitHub activity & hackathon leaderboards' },
@@ -88,9 +84,10 @@ export function LoginPage() {
   }
 
   function handleGoogleLogin() {
-    // Navigate directly to the Render backend — NOT through the Vercel /api proxy.
-    // Google OAuth requires real HTTP 302 redirects which a reverse proxy breaks.
-    window.location.href = `${BACKEND_URL}/api/auth/google`;
+    // Use Vercel proxy (/api/auth/google) so the OAuth callback also goes through
+    // Vercel, meaning cookies are set on the vercel.app domain and are sent on
+    // subsequent API requests. Going directly to Render breaks cookie scoping.
+    window.location.href = '/api/auth/google';
   }
 
   return (

@@ -212,12 +212,23 @@ router.get('/leaderboard', authenticate, async (req, res, next) => {
 // ── GET /api/students/:id ─────────────────────────────────────────────────────
 router.get('/:id', authenticate, async (req, res, next) => {
   try {
-    const student = await prisma.student.findUnique({
-      where: { id: req.params.id },
-      include: { githubStats: true, projects: { orderBy: { juryRating: 'desc' } } },
-    });
+    let student;
+    try {
+      student = await prisma.student.findUnique({
+        where: { id: req.params.id },
+        include: { githubStats: true, projects: { orderBy: { juryRating: 'desc' } } },
+      });
+    } catch (primaryErr) {
+      console.warn('[Students GET /:id] Query with relations failed, using fallback:', primaryErr.message);
+      student = await prisma.student.findUnique({ where: { id: req.params.id } });
+      if (student) {
+        try { student.githubStats = await prisma.gitHubStats.findUnique({ where: { studentId: student.id } }); } catch {}
+        try { student.projects = await prisma.hackathonProject.findMany({ where: { studentId: student.id } }); } catch { student.projects = []; }
+      }
+    }
 
     if (!student) return res.status(404).json({ error: 'Student not found' });
+
 
     const { githubStats, projects } = extractStudentData(student);
 

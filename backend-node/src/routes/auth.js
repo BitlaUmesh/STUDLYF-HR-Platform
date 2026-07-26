@@ -618,7 +618,7 @@ router.get('/google', (req, res) => {
   // Always use the explicit env var so the redirect_uri is stable and matches
   // what is registered in Google Cloud Console.
   const redirectUri = process.env.GOOGLE_REDIRECT_URI
-    || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+    || `https://studlyf-hr-platform.vercel.app/api/auth/google/callback`;
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -653,7 +653,7 @@ router.get('/google/callback', async (req, res, next) => {
 
     // Must exactly match what was sent in Step 1
     const redirectUri = process.env.GOOGLE_REDIRECT_URI
-      || `https://studlyf-hr-platform.onrender.com/api/auth/google/callback`;
+      || `https://studlyf-hr-platform.vercel.app/api/auth/google/callback`;
 
     // Exchange code for tokens
     let tokenRes;
