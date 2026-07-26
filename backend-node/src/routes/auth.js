@@ -129,12 +129,15 @@ router.post('/login', authLimiter, async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.post('/refresh', async (req, res, next) => {
   try {
-    let token = req.cookies?.refresh_token;
-    if (!token && req.headers.authorization) {
+    let token = null;
+    if (req.headers.authorization) {
       const parts = req.headers.authorization.split(' ');
-      if (parts.length === 2 && parts[0] === 'Bearer') {
+      if (parts.length === 2 && parts[0] === 'Bearer' && parts[1]) {
         token = parts[1];
       }
+    }
+    if (!token && req.cookies?.refresh_token) {
+      token = req.cookies.refresh_token;
     }
 
     if (!token) {
@@ -176,20 +179,41 @@ router.post('/logout', (req, res) => {
 // ─────────────────────────────────────────────────────────────────────────────
 router.get('/me', async (req, res, next) => {
   try {
-    let token = req.cookies?.access_token;
-    if (!token && req.headers.authorization) {
+    let token = null;
+    let authSource = 'none';
+
+    // Prioritize Authorization Bearer header from localStorage
+    if (req.headers.authorization) {
       const parts = req.headers.authorization.split(' ');
-      if (parts.length === 2 && parts[0] === 'Bearer') {
+      if (parts.length === 2 && parts[0] === 'Bearer' && parts[1]) {
         token = parts[1];
+        authSource = 'header';
       }
     }
 
-    if (!token) return res.status(401).json({ error: 'Not authenticated' });
+    // Try Bearer token first
+    let payload = null;
+    if (token) {
+      try {
+        payload = jwt.verify(token, JWT_SECRET);
+      } catch (err) {
+        // Bearer token failed, clear token so cookie fallback can be attempted below if available
+        token = null;
+      }
+    }
 
-    let payload;
-    try {
-      payload = jwt.verify(token, JWT_SECRET);
-    } catch {
+    // Fall back to access_token cookie if Bearer token was missing or invalid
+    if (!payload && req.cookies?.access_token) {
+      token = req.cookies.access_token;
+      authSource = 'cookie';
+      try {
+        payload = jwt.verify(token, JWT_SECRET);
+      } catch (err) {
+        payload = null;
+      }
+    }
+
+    if (!payload) {
       return res.status(401).json({ error: 'Invalid or expired token' });
     }
 
@@ -209,6 +233,7 @@ router.get('/me', async (req, res, next) => {
     next(err);
   }
 });
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GitHub OAuth — Step 1: Redirect to GitHub

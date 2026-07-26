@@ -6,15 +6,25 @@ const JWT_SECRET = process.env.JWT_SECRET || '26a7805549a9746b06e65a3666b410d4ff
  * Verifies the access_token cookie or Authorization header and attaches hrId to req.
  * Used on all protected HR routes.
  */
-function authenticate(req, res, next) {
-  let token = req.cookies?.access_token;
-  if (!token && req.headers.authorization) {
+function extractToken(req, cookieName) {
+  if (req.headers.authorization) {
     const parts = req.headers.authorization.split(' ');
-    if (parts.length === 2 && parts[0] === 'Bearer') {
-      token = parts[1];
+    if (parts.length === 2 && parts[0] === 'Bearer' && parts[1]) {
+      return parts[1];
     }
   }
+  if (req.cookies && req.cookies[cookieName]) {
+    return req.cookies[cookieName];
+  }
+  return null;
+}
 
+/**
+ * Verifies the access_token cookie or Authorization header and attaches hrId to req.
+ * Used on all protected HR routes.
+ */
+function authenticate(req, res, next) {
+  const token = extractToken(req, 'access_token');
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -24,6 +34,17 @@ function authenticate(req, res, next) {
     req.hrId = payload.sub;
     next();
   } catch (err) {
+    // If cookie was invalid/expired, check if Bearer header has a valid token before rejecting
+    if (req.cookies?.access_token && req.headers.authorization) {
+      const parts = req.headers.authorization.split(' ');
+      if (parts.length === 2 && parts[0] === 'Bearer' && parts[1]) {
+        try {
+          const payload = jwt.verify(parts[1], JWT_SECRET);
+          req.hrId = payload.sub;
+          return next();
+        } catch {}
+      }
+    }
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
@@ -33,14 +54,7 @@ function authenticate(req, res, next) {
  * Attaches studentId to req.
  */
 function authenticateStudent(req, res, next) {
-  let token = req.cookies?.student_access_token;
-  if (!token && req.headers.authorization) {
-    const parts = req.headers.authorization.split(' ');
-    if (parts.length === 2 && parts[0] === 'Bearer') {
-      token = parts[1];
-    }
-  }
-
+  const token = extractToken(req, 'student_access_token') || extractToken(req, 'access_token');
   if (!token) {
     return res.status(401).json({ error: 'Not authenticated' });
   }
@@ -53,5 +67,6 @@ function authenticateStudent(req, res, next) {
     return res.status(401).json({ error: 'Invalid or expired token' });
   }
 }
+
 
 module.exports = { authenticate, authenticateStudent };
