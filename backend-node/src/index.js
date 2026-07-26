@@ -91,8 +91,21 @@ app.use((err, req, res, next) => {
   console.error(`[ERROR] ${req.method} ${req.path}:`, err.message);
   const status = err.status || err.statusCode ||
     (err.code === 'LIMIT_FILE_SIZE' ? 413 : err.name === 'MulterError' ? 400 : 500);
+
+  let userMessage = err.message || 'Internal Server Error';
+  if (
+    userMessage.includes('prisma') ||
+    userMessage.includes('PrismaClient') ||
+    userMessage.includes('invocation') ||
+    userMessage.includes('gitHubStats') ||
+    userMessage.includes('hackathonProjects') ||
+    userMessage.includes('Unknown field')
+  ) {
+    userMessage = 'Unable to complete request. Please try again.';
+  }
+
   res.status(status).json({
-    error: err.message || 'Internal Server Error',
+    error: userMessage,
     ...(process.env.ENVIRONMENT !== 'production' && { stack: err.stack }),
   });
 });

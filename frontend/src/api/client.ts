@@ -64,14 +64,35 @@ apiClient.interceptors.response.use(
 
 /** Extracts a readable message from a backend error response (zod issues or plain error string) */
 export function getErrorMessage(err: unknown, fallback = 'Something went wrong'): string {
+  let message = fallback;
+
   if (axios.isAxiosError(err)) {
     const data = err.response?.data as any;
-    if (!data) return err.message || fallback;
-    if (typeof data.error === 'string') return data.error;
-    if (Array.isArray(data.error)) {
-      return data.error.map((i: any) => i.message).join(', ');
+    if (data) {
+      if (typeof data.error === 'string') {
+        message = data.error;
+      } else if (Array.isArray(data.error)) {
+        message = data.error.map((i: any) => i.message).join(', ');
+      }
+    } else if (err.message) {
+      message = err.message;
     }
-    return fallback;
+  } else if (err instanceof Error) {
+    message = err.message;
   }
-  return fallback;
+
+  // Filter out raw Prisma / internal database technical stack traces
+  if (
+    message.includes('prisma') ||
+    message.includes('PrismaClient') ||
+    message.includes('invocation') ||
+    message.includes('gitHubStats') ||
+    message.includes('hackathonProjects') ||
+    message.includes('Unknown field') ||
+    message.startsWith('Invalid `')
+  ) {
+    return 'Unable to process request at this time. Please try again.';
+  }
+
+  return message;
 }

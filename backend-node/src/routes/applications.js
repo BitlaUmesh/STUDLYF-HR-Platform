@@ -58,14 +58,27 @@ router.get('/', async (req, res, next) => {
 // ── GET /api/applications/:id ─────────────────────────────────────────────────
 router.get('/:id', async (req, res, next) => {
   try {
-    const application = await prisma.application.findFirst({
-      where: { id: req.params.id, hrId: req.hrId },
-      include: {
-        student: { include: { githubStats: true, projects: true } },
-        screeningResponses: { include: { question: true } },
-        meeting: true,
-      },
-    });
+    let application;
+    try {
+      application = await prisma.application.findFirst({
+        where: { id: req.params.id, hrId: req.hrId },
+        include: {
+          student: { include: { githubStats: true, projects: true } },
+          screeningResponses: { include: { question: true } },
+          meeting: true,
+        },
+      });
+    } catch (primaryErr) {
+      console.warn('[Application GET /:id] Full query failed, falling back to minimal include:', primaryErr.message);
+      application = await prisma.application.findFirst({
+        where: { id: req.params.id, hrId: req.hrId },
+        include: {
+          student: true,
+          meeting: true,
+        },
+      });
+    }
+
     if (!application) return res.status(404).json({ error: 'Application not found' });
 
     const responseData = {

@@ -163,9 +163,13 @@ export function ApplicationDetailPanel({
             <div className="p-3 bg-rose-50 border border-rose-100 rounded-2xl text-rose-600">
               <X size={24} />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1 max-w-xs">
               <p className="text-sm font-bold text-slate-900">Unable to load candidate details</p>
-              <p className="text-xs text-slate-500">{error}</p>
+              <p className="text-xs text-slate-500">
+                {error.includes('prisma') || error.includes('Invocation') || error.includes('gitHubStats')
+                  ? 'Please check your connection and try again.'
+                  : error}
+              </p>
             </div>
             <Button size="sm" onClick={load} className="rounded-xl font-bold">
               Try Again
