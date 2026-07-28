@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { Button, Input } from '../components/ui';
-import { getErrorMessage } from '../api/client';
+import { getErrorMessage, API_BASE_URL } from '../api/client';
 
 const FEATURES = [
   { emoji: '🎯', text: 'AI-powered talent matching across 1000+ profiles' },
@@ -84,11 +84,9 @@ export function LoginPage() {
   }
 
   function handleGoogleLogin() {
-    // Use Vercel proxy (/api/auth/google) so the OAuth callback also goes through
-    // Vercel, meaning cookies are set on the vercel.app domain and are sent on
-    // subsequent API requests. Going directly to Render breaks cookie scoping.
-    window.location.href = '/api/auth/google';
+    window.location.href = `${API_BASE_URL}/auth/google`;
   }
+
 
   return (
     <div className="flex min-h-screen">
