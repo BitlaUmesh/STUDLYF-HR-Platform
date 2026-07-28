@@ -627,6 +627,16 @@ router.post('/set-google-password', async (req, res, next) => {
   }
 });
 
+function getGoogleRedirectUri(req) {
+  if (process.env.GOOGLE_REDIRECT_URI) return process.env.GOOGLE_REDIRECT_URI;
+  if (process.env.GOOGLE_REDIRECT_URL) return process.env.GOOGLE_REDIRECT_URL;
+  const host = req.get('host') || '';
+  if (host.includes('localhost') || host.includes('127.0.0.1')) {
+    return `http://${host}/api/auth/google/callback`;
+  }
+  return 'https://studlyf-hr-platform.onrender.com/api/auth/google/callback';
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
 // Google OAuth — Step 1: Redirect to Google
@@ -640,10 +650,7 @@ router.get('/google', (req, res) => {
     return res.redirect(`${frontend}/login?error=google_not_configured`);
   }
 
-  // Always use the explicit env var so the redirect_uri is stable and matches
-  // what is registered in Google Cloud Console.
-  const redirectUri = process.env.GOOGLE_REDIRECT_URI
-    || `https://studlyf-hr-platform.vercel.app/api/auth/google/callback`;
+  const redirectUri = getGoogleRedirectUri(req);
 
   const params = new URLSearchParams({
     client_id: clientId,
@@ -677,8 +684,8 @@ router.get('/google/callback', async (req, res, next) => {
     }
 
     // Must exactly match what was sent in Step 1
-    const redirectUri = process.env.GOOGLE_REDIRECT_URI
-      || `https://studlyf-hr-platform.vercel.app/api/auth/google/callback`;
+    const redirectUri = getGoogleRedirectUri(req);
+
 
     // Exchange code for tokens
     let tokenRes;

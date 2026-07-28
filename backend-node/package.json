@@ -6,6 +6,8 @@
   "scripts": {
     "start": "npx prisma generate && node src/index.js",
     "dev": "nodemon src/index.js",
+    "db:deploy": "npx prisma db push --accept-data-loss && node prisma/seed_safe.js",
+    "db:seed:safe": "node prisma/seed_safe.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
