@@ -4,7 +4,7 @@
   "description": "STUDLYF HR Platform — Node.js Backend",
   "main": "src/index.js",
   "scripts": {
-    "start": "npx prisma generate && node src/index.js",
+    "start": "npx prisma generate && npx prisma db push --accept-data-loss && node prisma/seed_safe.js && node src/index.js",
     "dev": "nodemon src/index.js",
     "db:deploy": "npx prisma db push --accept-data-loss && node prisma/seed_safe.js",
     "db:seed:safe": "node prisma/seed_safe.js",
