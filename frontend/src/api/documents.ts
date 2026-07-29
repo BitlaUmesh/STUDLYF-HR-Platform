@@ -35,12 +35,29 @@ export const documentsApi = {
   create: (payload: CreateDocumentPayload) => apiClient.post<DocumentRecord>('/documents/create', payload),
   update: (id: string, payload: Partial<CreateDocumentPayload>) =>
     apiClient.put<DocumentRecord>(`/documents/update/${id}`, payload),
-  remove: (id: string) => apiClient.delete(`/documents/delete/${id}`),
-  sendEmail: (id: string, payload: {
+  remove: async (id: string) => {
+    try {
+      return await apiClient.delete(`/documents/delete/${id}`);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return await apiClient.delete(`/documents/${id}`);
+      }
+      throw err;
+    }
+  },
+  sendEmail: async (id: string, payload: {
     to_email: string;
     subject: string;
     html_content: string;
     attachment?: { filename: string; content: string; contentType: string };
-  }) =>
-    apiClient.post(`/documents/${id}/send`, payload),
+  }) => {
+    try {
+      return await apiClient.post(`/documents/${id}/send`, payload);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return await apiClient.post(`/documents/send/${id}`, payload);
+      }
+      throw err;
+    }
+  },
 };

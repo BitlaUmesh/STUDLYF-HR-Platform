@@ -3,23 +3,10 @@ import { Link, useNavigate } from 'react-router-dom';
 import { User, Building2, Mail, Lock, Eye, EyeOff, ArrowRight, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { authApi } from '../api/auth';
-import { Button, Input } from '../components/ui';
+import { Button, Input, PasswordRequirementsInfo, PasswordMetricsList, validatePasswordMetrics } from '../components/ui';
 import { getErrorMessage } from '../api/client';
 
-function getPasswordStrength(password: string): { score: number; label: string; color: string } {
-  let score = 0;
-  if (password.length >= 8) score++;
-  if (password.length >= 12) score++;
-  if (/[A-Z]/.test(password)) score++;
-  if (/[0-9]/.test(password)) score++;
-  if (/[^A-Za-z0-9]/.test(password)) score++;
 
-  if (score <= 1) return { score, label: 'Weak', color: 'bg-red-500' };
-  if (score <= 2) return { score, label: 'Fair', color: 'bg-amber-500' };
-  if (score <= 3) return { score, label: 'Good', color: 'bg-blue-500' };
-  if (score <= 4) return { score, label: 'Strong', color: 'bg-emerald-500' };
-  return { score, label: 'Very Strong', color: 'bg-emerald-600' };
-}
 
 const STEP_LABELS = ['Your Details', 'Your Company', 'Verify Email'];
 
@@ -49,7 +36,6 @@ export function SignupPage() {
     setForm((f) => ({ ...f, [field]: value }));
   }
 
-  const passwordStrength = getPasswordStrength(form.password);
   const passwordsMatch = form.password === form.confirmPassword;
   const confirmError =
     form.confirmPassword.length > 0 && !passwordsMatch ? 'Passwords do not match' : '';
@@ -58,6 +44,11 @@ export function SignupPage() {
     e.preventDefault();
     if (!form.fullName || !form.email || !form.password || !form.confirmPassword) {
       setError('Please fill in all fields.');
+      return;
+    }
+    const validation = validatePasswordMetrics(form.password);
+    if (!validation.valid && validation.errorMsg) {
+      setError(validation.errorMsg);
       return;
     }
     if (!passwordsMatch) {
@@ -271,14 +262,16 @@ export function SignupPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-sm font-semibold text-[var(--color-text)]">Password</label>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-sm font-semibold text-[var(--color-text)]">Password</label>
+                  <PasswordRequirementsInfo password={form.password} />
+                </div>
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  minLength={8}
                   value={form.password}
                   onChange={(e) => update('password', e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder="Enter password"
                   leftIcon={<Lock size={16} />}
                   rightIcon={
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="cursor-pointer hover:text-[var(--color-text)] transition-colors">
@@ -286,26 +279,7 @@ export function SignupPage() {
                     </button>
                   }
                 />
-                {form.password.length > 0 && (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex gap-1">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <div
-                          key={i}
-                          className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                            i <= passwordStrength.score ? passwordStrength.color : 'bg-[var(--color-line)]'
-                          }`}
-                        />
-                      ))}
-                    </div>
-                    <p className={`text-xs font-semibold ${
-                      passwordStrength.score <= 2 ? 'text-red-500' :
-                      passwordStrength.score <= 3 ? 'text-amber-600' : 'text-emerald-600'
-                    }`}>
-                      {passwordStrength.label}
-                    </p>
-                  </div>
-                )}
+                {form.password.length > 0 && <PasswordMetricsList password={form.password} />}
               </div>
 
               <div>

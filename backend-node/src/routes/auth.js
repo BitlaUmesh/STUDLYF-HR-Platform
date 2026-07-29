@@ -48,6 +48,25 @@ const loginSchema = z.object({
   password: z.string().min(1),
 });
 
+function validatePasswordPolicy(password) {
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  if (!/[A-Z]/.test(password)) {
+    return 'Password must contain at least one capital letter (A-Z).';
+  }
+  if (!/[a-z]/.test(password)) {
+    return 'Password must contain at least one small letter (a-z).';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number (0-9).';
+  }
+  if (!/[@\.\-\/]/.test(password)) {
+    return 'Password must contain at least one special character from @ . - /';
+  }
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/signup
 // ─────────────────────────────────────────────────────────────────────────────
@@ -59,6 +78,11 @@ router.post('/signup', signupLimiter, async (req, res, next) => {
     }
 
     const { fullName, email, password, companyName } = parsed.data;
+
+    const policyErr = validatePasswordPolicy(password);
+    if (policyErr) {
+      return res.status(400).json({ error: policyErr });
+    }
 
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) {
@@ -339,8 +363,17 @@ const { authenticate } = require('../middleware/auth');
 router.post('/change-password', authenticate, async (req, res, next) => {
   try {
     const { currentPassword, newPassword } = req.body;
-    if (!currentPassword || !newPassword || newPassword.length < 8) {
-      return res.status(400).json({ error: 'New password must be at least 8 characters long.' });
+    if (!currentPassword || !newPassword) {
+      return res.status(400).json({ error: 'Current password and new password are required.' });
+    }
+
+    const policyErr = validatePasswordPolicy(newPassword);
+    if (policyErr) {
+      return res.status(400).json({ error: policyErr });
+    }
+
+    if (currentPassword === newPassword) {
+      return res.status(400).json({ error: 'New password cannot be the same as your current password.' });
     }
 
     const user = await prisma.user.findUnique({ where: { id: req.hrId } });
@@ -349,6 +382,11 @@ router.post('/change-password', authenticate, async (req, res, next) => {
     const isMatch = await bcrypt.compare(currentPassword, user.hashedPassword);
     if (!isMatch) {
       return res.status(400).json({ error: 'Incorrect current password.' });
+    }
+
+    const isSamePassword = await bcrypt.compare(newPassword, user.hashedPassword);
+    if (isSamePassword) {
+      return res.status(400).json({ error: 'New password cannot be the same as your current password.' });
     }
 
     const hashedPassword = await bcrypt.hash(newPassword, 12);
@@ -366,20 +404,10 @@ router.post('/change-password', authenticate, async (req, res, next) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // POST /api/auth/forgot-password
 // ─────────────────────────────────────────────────────────────────────────────
-// ── Transporter & OTP Helper ──────────────────────────────────────────────────
-const transporter = nodemailer.createTransport({
-  host: process.env.SMTP_HOST || 'smtp.gmail.com',
-  port: Number(process.env.SMTP_PORT) || 587,
-  secure: false,
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-});
+// ── OTP Mailer Helper ────────────────────────────────────────────────────────
+const { sendDocumentEmail } = require('../services/email');
 
 async function sendOtpEmail(email, otp, title, subtitle) {
-  const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `STUDLYF HR <${process.env.SMTP_USER}>` : 'STUDLYF HR <noreply@studlyf.com>');
-  
   const htmlContent = `
     <div style="font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;max-width:480px;margin:0 auto;padding:32px 24px;background-color:#ffffff;border:1px solid #e2e8f0;border-radius:16px;">
       <div style="margin-bottom:24px;text-align:center;">
@@ -412,18 +440,11 @@ async function sendOtpEmail(email, otp, title, subtitle) {
     </div>
   `;
 
-  if (process.env.SMTP_USER && process.env.SMTP_PASS) {
-    try {
-      await transporter.sendMail({
-        from: fromAddress,
-        to: email,
-        subject: `${otp} is your STUDLYF verification code`,
-        html: htmlContent,
-      });
-    } catch (e) {
-      console.error('[OTP Mailer Error]', e);
-    }
-  }
+  await sendDocumentEmail({
+    to: email,
+    subject: `[STUDLYF HR] ${otp} is your verification code`,
+    htmlContent,
+  });
   
   // Dev Fallback console print
   console.log(`\n==========================================`);
@@ -511,9 +532,9 @@ router.post('/verify-signup-otp', async (req, res, next) => {
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Forgot Password 6-Digit OTP Endpoints
+// Forgot Password 6-Digit OTP Endpoints (with legacy route aliases)
 // ─────────────────────────────────────────────────────────────────────────────
-router.post('/forgot-password-otp', async (req, res, next) => {
+const handleForgotPasswordOtp = async (req, res, next) => {
   try {
     const { email } = req.body;
     if (!email) return res.status(400).json({ error: 'Email is required' });
@@ -536,9 +557,12 @@ router.post('/forgot-password-otp', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+};
 
-router.post('/verify-reset-otp', async (req, res, next) => {
+router.post('/forgot-password-otp', handleForgotPasswordOtp);
+router.post('/forgot-password', handleForgotPasswordOtp);
+
+const handleVerifyResetOtp = async (req, res, next) => {
   try {
     const { email, otp } = req.body;
     if (!email || !otp) return res.status(400).json({ error: 'Email and 6-digit OTP code are required.' });
@@ -560,9 +584,12 @@ router.post('/verify-reset-otp', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+};
 
-router.post('/reset-password-otp', async (req, res, next) => {
+router.post('/verify-reset-otp', handleVerifyResetOtp);
+router.post('/verify-otp', handleVerifyResetOtp);
+
+const handleResetPasswordOtp = async (req, res, next) => {
   try {
     const { email, otp, newPassword } = req.body;
     if (!email || !otp || !newPassword || newPassword.length < 8) {
@@ -594,7 +621,10 @@ router.post('/reset-password-otp', async (req, res, next) => {
   } catch (err) {
     next(err);
   }
-});
+};
+
+router.post('/reset-password-otp', handleResetPasswordOtp);
+router.post('/reset-password', handleResetPasswordOtp);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Google OAuth First-time Password Setup

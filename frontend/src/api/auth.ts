@@ -38,12 +38,36 @@ export const authApi = {
     ),
   logout: () => apiClient.post('/auth/logout'),
   me: () => apiClient.get<HRUser>('/auth/me'),
-  forgotPasswordOtp: (email: string) =>
-    apiClient.post<{ message: string; email: string }>('/auth/forgot-password-otp', { email }),
-  verifyResetOtp: (email: string, otp: string) =>
-    apiClient.post<{ message: string; valid: boolean }>('/auth/verify-reset-otp', { email, otp }),
-  resetPasswordOtp: (payload: { email: string; otp: string; newPassword: string }) =>
-    apiClient.post<{ message: string }>('/auth/reset-password-otp', payload),
+  forgotPasswordOtp: async (email: string) => {
+    try {
+      return await apiClient.post<{ message: string; email: string }>('/auth/forgot-password-otp', { email });
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return await apiClient.post<{ message: string; email: string }>('/auth/forgot-password', { email });
+      }
+      throw err;
+    }
+  },
+  verifyResetOtp: async (email: string, otp: string) => {
+    try {
+      return await apiClient.post<{ message: string; valid: boolean }>('/auth/verify-reset-otp', { email, otp });
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return await apiClient.post<{ message: string; valid: boolean }>('/auth/verify-otp', { email, otp });
+      }
+      throw err;
+    }
+  },
+  resetPasswordOtp: async (payload: { email: string; otp: string; newPassword: string }) => {
+    try {
+      return await apiClient.post<{ message: string }>('/auth/reset-password-otp', payload);
+    } catch (err: any) {
+      if (err.response?.status === 404) {
+        return await apiClient.post<{ message: string }>('/auth/reset-password', payload);
+      }
+      throw err;
+    }
+  },
   setGooglePassword: (payload: { email: string; password: string }) =>
     apiClient.post<{ message: string; user: HRUser }>('/auth/set-google-password', payload),
   forgotPassword: (email: string) =>

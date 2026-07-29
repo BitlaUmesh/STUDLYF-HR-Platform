@@ -37,12 +37,16 @@ export function DocumentsListPage() {
 
   async function handleConfirmDelete() {
     if (!deletingDoc) return;
+    const docId = deletingDoc.id;
     setIsDeleting(true);
+    // Optimistically remove from state immediately
+    setDocs((prev) => (prev ? prev.filter((d) => d.id !== docId) : []));
+
     try {
-      await documentsApi.remove(deletingDoc.id);
+      await documentsApi.remove(docId);
       
       // Wipe session storage and reset store if deleted doc was active in store
-      if (currentDocId === deletingDoc.id) {
+      if (currentDocId === docId) {
         resetState();
       }
       sessionStorage.removeItem('draft_document_state');
@@ -51,6 +55,7 @@ export function DocumentsListPage() {
       load();
     } catch (err) {
       console.error('Failed to delete document', err);
+      load();
     } finally {
       setIsDeleting(false);
     }

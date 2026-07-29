@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, Lock, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
-import { Button, Input } from '../components/ui';
+import { Button, Input, PasswordRequirementsInfo, PasswordMetricsList } from '../components/ui';
 import { getErrorMessage, API_BASE_URL } from '../api/client';
 
 const FEATURES = [
@@ -185,7 +185,10 @@ export function LoginPage() {
 
             <div>
               <div className="mb-1.5 flex items-center justify-between">
-                <label className="text-sm font-semibold text-[var(--color-text)]">Password</label>
+                <div className="flex items-center gap-1.5">
+                  <label className="text-sm font-semibold text-[var(--color-text)]">Password</label>
+                  <PasswordRequirementsInfo password={password} />
+                </div>
                 <Link to="/forgot-password" className="text-xs font-semibold text-[var(--color-primary-vivid)] hover:underline">
                   Forgot password?
                 </Link>
@@ -207,6 +210,7 @@ export function LoginPage() {
                   </button>
                 }
               />
+              {password.length > 0 && <PasswordMetricsList password={password} />}
             </div>
 
             {/* Remember Me */}

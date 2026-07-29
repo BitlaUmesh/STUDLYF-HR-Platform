@@ -1,7 +1,7 @@
 import { useState, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Mail, ArrowLeft, Send, ShieldCheck, Lock, Eye, EyeOff, CheckCircle2, RefreshCw } from 'lucide-react';
-import { Button, Input } from '../components/ui';
+import { Button, Input, PasswordRequirementsInfo, PasswordMetricsList, validatePasswordMetrics } from '../components/ui';
 import { authApi } from '../api/auth';
 import { getErrorMessage } from '../api/client';
 
@@ -111,8 +111,9 @@ export function ForgotPasswordPage() {
   // Step 3: Overwrite Password
   async function handleResetPassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!newPassword || newPassword.length < 8) {
-      setError('New password must be at least 8 characters long.');
+    const validation = validatePasswordMetrics(newPassword);
+    if (!validation.valid && validation.errorMsg) {
+      setError(validation.errorMsg);
       return;
     }
     if (!passwordsMatch) {
@@ -288,14 +289,16 @@ export function ForgotPasswordPage() {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-slate-700 uppercase tracking-wider">New Password</label>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">New Password</label>
+                  <PasswordRequirementsInfo password={newPassword} />
+                </div>
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   required
-                  minLength={8}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="At least 8 characters"
+                  placeholder="Enter new password"
                   leftIcon={<Lock size={16} />}
                   rightIcon={
                     <button type="button" onClick={() => setShowPassword(!showPassword)} className="cursor-pointer hover:text-slate-700 transition-colors">
@@ -303,6 +306,7 @@ export function ForgotPasswordPage() {
                     </button>
                   }
                 />
+                {newPassword.length > 0 && <PasswordMetricsList password={newPassword} />}
               </div>
 
               <div>

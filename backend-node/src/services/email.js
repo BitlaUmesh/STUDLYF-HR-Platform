@@ -1,31 +1,69 @@
 const nodemailer = require('nodemailer');
 
-const isSmtpConfigured =
-  process.env.SMTP_HOST &&
-  !process.env.SMTP_HOST.startsWith('your_') &&
-  !process.env.SMTP_HOST.includes('placeholder') &&
-  process.env.SMTP_USER;
+function getTransporter() {
+  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
+  const port = parseInt(process.env.SMTP_PORT || '587');
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
 
-const transporter = isSmtpConfigured ? nodemailer.createTransport({
-  host: process.env.SMTP_HOST,
-  port: parseInt(process.env.SMTP_PORT || '587'),
-  secure: false, // true for 465, false for other ports
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-}) : null;
+  if (!user || !pass) {
+    return null;
+  }
+
+  try {
+    return nodemailer.createTransport({
+      host,
+      port,
+      secure: port === 465,
+      auth: { user, pass },
+    });
+  } catch (err) {
+    console.error('[SMTP Transporter Creation Error]', err.message);
+    return null;
+  }
+}
 
 async function sendMailSafe(options) {
-  if (!isSmtpConfigured || !transporter || typeof transporter.sendMail !== 'function') {
-    console.log('[SMTP SKIPPED] Email sending skipped (unconfigured or transporter not ready):', options.subject);
-    return;
+  const transporter = getTransporter();
+  if (!transporter || typeof transporter.sendMail !== 'function') {
+    console.log('[SMTP SKIPPED] Email credentials not configured. Subject:', options.subject);
+    return { ok: true, skipped: true, message: 'SMTP credentials not configured' };
   }
+
+  // High Priority, Alert & Deliverability Headers
+  const defaultHeaders = {
+    'X-Priority': '1', // 1 = Highest / Urgent
+    'X-MSMail-Priority': 'High',
+    'Importance': 'High',
+    'Priority': 'urgent',
+    'X-Auto-Response-Suppress': 'OOF, AutoReply',
+  };
+
+  const mailOptions = {
+    ...options,
+    priority: 'high',
+    headers: {
+      ...defaultHeaders,
+      ...(options.headers || {}),
+    },
+  };
+
+  // Generate plain text alternative for multipart MIME deliverability (prevents spam filters)
+  if (options.html && !options.text) {
+    mailOptions.text = options.html
+      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
   try {
-    await transporter.sendMail(options);
-    console.log('[SMTP OK] Email sent to:', options.to);
+    const info = await transporter.sendMail(mailOptions);
+    console.log('[SMTP SUCCESS] Email sent to:', options.to, 'MessageId:', info?.messageId);
+    return { ok: true, messageId: info?.messageId };
   } catch (err) {
-    console.warn('[SMTP ERROR] Failed to send email via SMTP, but continuing:', err.message);
+    console.error('[SMTP ERROR] Failed to send email via SMTP:', err.message);
+    return { ok: false, error: err.message };
   }
 }
 
@@ -34,7 +72,7 @@ async function sendMailSafe(options) {
  */
 async function sendMeetingInvite({ to, hrName, companyName, title, scheduledAt, calendlyLink }) {
   const formattedTime = scheduledAt ? new Date(scheduledAt).toLocaleString() : 'Scheduled by HR';
-  await sendMailSafe({
+  return await sendMailSafe({
     from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `Interview Scheduled with ${companyName} — ${title}`,
@@ -59,7 +97,7 @@ async function sendMeetingInvite({ to, hrName, companyName, title, scheduledAt, 
  * Send a meeting cancellation notice.
  */
 async function sendMeetingCancellation({ to, hrName, companyName, title }) {
-  await sendMailSafe({
+  return await sendMailSafe({
     from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `Meeting Cancelled — ${title}`,
@@ -79,7 +117,7 @@ async function sendMeetingCancellation({ to, hrName, companyName, title }) {
  * Notify a student that they received a new message from HR.
  */
 async function sendMessageNotification({ to, hrName, companyName, preview }) {
-  await sendMailSafe({
+  return await sendMailSafe({
     from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `New message from ${companyName}`,
@@ -108,7 +146,7 @@ async function sendApplicationStatusUpdate({ to, companyName, status }) {
 
   const info = statusMap[status] || { label: 'Application Update', color: '#2D136F' };
 
-  await sendMailSafe({
+  return await sendMailSafe({
     from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `${info.label} — ${companyName}`,
@@ -131,8 +169,10 @@ async function sendApplicationStatusUpdate({ to, companyName, status }) {
  * @param {{ filename: string; content: string; contentType: string }|undefined} opts.attachment - Optional base64 file attachment
  */
 async function sendDocumentEmail({ to, subject, htmlContent, attachment }) {
+  const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `STUDLYF HR <${process.env.SMTP_USER}>` : 'STUDLYF HR <no-reply@studlyf.com>');
+
   const mailOptions = {
-    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
+    from: fromAddress,
     to,
     subject,
     html: htmlContent,
@@ -148,7 +188,7 @@ async function sendDocumentEmail({ to, subject, htmlContent, attachment }) {
     ];
   }
 
-  await sendMailSafe(mailOptions);
+  return await sendMailSafe(mailOptions);
 }
 
 module.exports = {

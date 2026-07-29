@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
-import { Save, User, Building2, FileText, Lock, CheckCircle2, AlertCircle, Image as ImageIcon, Camera } from 'lucide-react';
+import { Save, User, Building2, FileText, Lock, CheckCircle2, AlertCircle, Image as ImageIcon, Camera, Eye, EyeOff } from 'lucide-react';
 import { profileApi, type FullProfile, type CompanyBranding } from '../api/profile';
-import { Card, Button, Input, PageHeader, Avatar } from '../components/ui';
+import { Card, Button, Input, PageHeader, Avatar, PasswordRequirementsInfo, PasswordMetricsList, validatePasswordMetrics } from '../components/ui';
 import { getErrorMessage } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 
@@ -15,6 +15,9 @@ export function SettingsPage() {
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState('');
   const [passwordSuccess, setPasswordSuccess] = useState('');
@@ -102,8 +105,13 @@ export function SettingsPage() {
       setPasswordError('Please enter your current password.');
       return;
     }
-    if (newPassword.length < 8) {
-      setPasswordError('New password must be at least 8 characters long.');
+    if (currentPassword === newPassword) {
+      setPasswordError('New password cannot be the same as your current password.');
+      return;
+    }
+    const validation = validatePasswordMetrics(newPassword);
+    if (!validation.valid && validation.errorMsg) {
+      setPasswordError(validation.errorMsg);
       return;
     }
     if (newPassword !== confirmPassword) {
@@ -499,36 +507,72 @@ export function SettingsPage() {
 
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Current Password</label>
-              <Input
-                type="password"
-                required
-                value={currentPassword}
-                onChange={(e) => setCurrentPassword(e.target.value)}
-                placeholder="••••••••"
-              />
+              <div className="relative">
+                <Input
+                  type={showCurrentPassword ? "text" : "password"}
+                  required
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer"
+                  title={showCurrentPassword ? "Hide password" : "Show password"}
+                >
+                  {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <div>
-              <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">New Password</label>
-              <Input
-                type="password"
-                required
-                minLength={8}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="At least 8 characters"
-              />
+              <div className="mb-1.5 flex items-center justify-between">
+                <label className="text-xs font-bold uppercase tracking-wider text-slate-600">New Password</label>
+                <PasswordRequirementsInfo password={newPassword} />
+              </div>
+              <div className="relative">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Enter new password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer"
+                  title={showNewPassword ? "Hide password" : "Show password"}
+                >
+                  {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+              {newPassword.length > 0 && <PasswordMetricsList password={newPassword} />}
             </div>
 
             <div>
               <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Confirm New Password</label>
-              <Input
-                type="password"
-                required
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Re-enter new password"
-              />
+              <div className="relative">
+                <Input
+                  type={showConfirmPassword ? "text" : "password"}
+                  required
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter new password"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 focus:outline-none transition-colors cursor-pointer"
+                  title={showConfirmPassword ? "Hide password" : "Show password"}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
             </div>
 
             <Button type="submit" loading={passwordSaving} size="sm" className="rounded-xl font-bold">

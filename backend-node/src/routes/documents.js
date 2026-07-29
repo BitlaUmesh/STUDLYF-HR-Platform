@@ -58,53 +58,10 @@ router.post('/create', async (req, res, next) => {
 // ── GET /api/documents/ ───────────────────────────────────────────────────────
 router.get('/', async (req, res, next) => {
   try {
-    let docs = await prisma.document.findMany({
+    const docs = await prisma.document.findMany({
       where: { userId: req.hrId },
       orderBy: { updatedAt: 'desc' },
     });
-
-    if (docs.length === 0) {
-      // Auto seed 2 starter drafts for HR
-      const draft1 = await prisma.document.create({
-        data: {
-          userId: req.hrId,
-          type: 'OFFER_LETTER',
-          title: 'Offer Letter - Vikram Malhotra (Draft)',
-          status: 'draft',
-          candidateDetails: {
-            candidateName: 'Vikram Malhotra',
-            candidateEmail: 'vikram.malhotra@studlyf.com',
-            jobTitle: 'Senior Software Engineer',
-            salary: '$140,000 / year',
-            companyName: 'StudLyf Inc.',
-          },
-          contentJSON: {
-            html: '<p>Dear Vikram Malhotra,</p><p>We are thrilled to offer you the position of Senior Software Engineer at StudLyf Inc.</p>',
-          },
-        },
-      });
-
-      const draft2 = await prisma.document.create({
-        data: {
-          userId: req.hrId,
-          type: 'JOINING_LETTER',
-          title: 'Joining Letter - Neha Patil (Draft)',
-          status: 'draft',
-          candidateDetails: {
-            candidateName: 'Neha Patil',
-            candidateEmail: 'neha.patil@studlyf.com',
-            jobTitle: 'Frontend Engineer',
-            salary: '$115,000 / year',
-            companyName: 'StudLyf Inc.',
-          },
-          contentJSON: {
-            html: '<p>Dear Neha Patil,</p><p>Welcome to StudLyf Inc. We are excited to confirm your joining date as Frontend Engineer.</p>',
-          },
-        },
-      });
-
-      docs = [draft1, draft2];
-    }
 
     return res.json(docs);
   } catch (err) {
@@ -166,20 +123,27 @@ router.put('/update/:id', async (req, res, next) => {
   }
 });
 
-// ── DELETE /api/documents/delete/:id ─────────────────────────────────────────
-router.delete('/delete/:id', async (req, res, next) => {
+// ── DELETE /api/documents/delete/:id & /api/documents/:id ───────────────────
+const handleDeleteDocument = async (req, res, next) => {
   try {
     const doc = await prisma.document.findFirst({
       where: { id: req.params.id, userId: req.hrId },
     });
     if (!doc) return res.status(404).json({ error: 'Document not found' });
 
+    // Delete related records safely
+    await prisma.recentEdit.deleteMany({ where: { documentId: req.params.id } });
+    await prisma.emailLog.deleteMany({ where: { documentId: req.params.id } });
+
     await prisma.document.delete({ where: { id: req.params.id } });
-    return res.json({ message: 'Document deleted successfully' });
+    return res.json({ message: 'Document deleted permanently' });
   } catch (err) {
     next(err);
   }
-});
+};
+
+router.delete('/delete/:id', handleDeleteDocument);
+router.delete('/:id', handleDeleteDocument);
 
 const sendSchema = z.object({
   to_email: z.string().email(),
@@ -192,8 +156,8 @@ const sendSchema = z.object({
   }).optional(),
 });
 
-// ── POST /api/documents/:id/send ─────────────────────────────────────────────
-router.post('/:id/send', async (req, res, next) => {
+// ── POST /api/documents/:id/send & /api/documents/send/:id ──────────────────
+const handleSendDocument = async (req, res, next) => {
   try {
     const parsed = sendSchema.safeParse(req.body);
     if (!parsed.success) {
@@ -207,18 +171,25 @@ router.post('/:id/send', async (req, res, next) => {
       return res.status(404).json({ error: 'Document not found' });
     }
 
-    await sendDocumentEmail({
+    const result = await sendDocumentEmail({
       to: parsed.data.to_email,
       subject: parsed.data.subject,
       htmlContent: parsed.data.html_content,
       attachment: parsed.data.attachment,
     });
 
+    if (result && result.ok === false && result.error) {
+      return res.status(500).json({ error: `Email failed: ${result.error}` });
+    }
+
     return res.status(200).json({ message: 'Email sent successfully!' });
   } catch (err) {
     console.error('[SEND-EMAIL ERROR]', err?.message || err, err?.stack);
     next(err);
   }
-});
+};
+
+router.post('/:id/send', handleSendDocument);
+router.post('/send/:id', handleSendDocument);
 
 module.exports = router;

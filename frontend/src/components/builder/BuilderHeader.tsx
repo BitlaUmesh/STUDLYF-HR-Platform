@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { Save, Download, Loader2, Mail, X, CheckCircle2, FileText, FileImage, ChevronLeft, ChevronRight, FileType, ArrowLeft, Edit3 } from "lucide-react";
 import { useDocumentBuilderStore } from "../../store/documentBuilderStore";
@@ -24,6 +24,21 @@ export default function BuilderHeader() {
   const { user } = useAuthStore();
   const [isExporting, setIsExporting] = useState(false);
   const [exportModal, setExportModal] = useState(false);
+  const exportDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(event.target as Node)) {
+        setExportModal(false);
+      }
+    };
+    if (exportModal) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [exportModal]);
 
   // Email wizard state
   const [emailModalOpen, setEmailModalOpen] = useState(false);
@@ -99,9 +114,33 @@ export default function BuilderHeader() {
 
   const capturePageA4Canvas = async (page: HTMLElement) => {
     const orig = { w: page.style.width, mw: page.style.maxWidth, nw: page.style.minWidth, h: page.style.height };
-    page.style.width = '794px'; page.style.maxWidth = '794px'; page.style.minWidth = '794px'; page.style.height = '1123px';
-    const canvas = await htmlToImage.toCanvas(page, { quality: 1.0, pixelRatio: 2 });
-    page.style.width = orig.w; page.style.maxWidth = orig.mw; page.style.minWidth = orig.nw; page.style.height = orig.h;
+    page.style.width = '794px';
+    page.style.maxWidth = '794px';
+    page.style.minWidth = '794px';
+    page.style.height = '1123px';
+
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await htmlToImage.toCanvas(page, {
+        quality: 0.95,
+        pixelRatio: 2,
+        skipFonts: true,
+        fontEmbedCSS: '',
+        cacheBust: false,
+      });
+    } catch (e) {
+      console.warn('[Export Warning] High-DPI canvas export failed, trying standard fallback:', e);
+      canvas = await htmlToImage.toCanvas(page, {
+        quality: 0.95,
+        skipFonts: true,
+        fontEmbedCSS: '',
+      });
+    } finally {
+      page.style.width = orig.w;
+      page.style.maxWidth = orig.mw;
+      page.style.minWidth = orig.nw;
+      page.style.height = orig.h;
+    }
     return canvas;
   };
 
@@ -270,61 +309,83 @@ export default function BuilderHeader() {
     }
   };
 
-
   const handleExportPDF = async () => {
     setIsExporting(true);
     setExportModal(false);
     try {
-      const pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
-      if (pages.length > 0) {
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
-        const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
-
-        for (let i = 0; i < pages.length; i++) {
-          const page = pages[i];
-          const imgCanvas = await capturePageA4Canvas(page);
-          const imgData = imgCanvas.toDataURL('image/jpeg', 1.0);
-          if (i > 0) {
-            pdf.addPage();
-          }
-
-          // Exact A4 aspect ratio rendering (210mm x 297mm)
-          pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
-        }
-        
-        pdf.save(`Studlyf_${documentType}_Letter.pdf`);
-        setToast({ message: "PDF Letter exported successfully!", type: "success" });
+      let pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
+      if (pages.length === 0) {
+        const container = document.getElementById('document-preview-container');
+        if (container) pages = [container as HTMLElement];
       }
+
+      if (pages.length === 0) {
+        setToast({ message: "No document preview page found to export.", type: "error" });
+        return;
+      }
+
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth(); // 210mm
+      const pdfHeight = pdf.internal.pageSize.getHeight(); // 297mm
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const imgCanvas = await capturePageA4Canvas(page);
+        const imgData = imgCanvas.toDataURL('image/jpeg', 0.95);
+        if (i > 0) pdf.addPage();
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight, undefined, 'FAST');
+      }
+
+      const candName = (candidateDetails as any)?.candidateName || 'Candidate';
+      const safeName = candName.replace(/\s+/g, '_');
+      const filename = `Studlyf_${documentType === 'offer' ? 'Offer' : 'Joining'}_Letter_${safeName}.pdf`;
+
+      pdf.save(filename);
+      setToast({ message: "PDF Letter exported successfully!", type: "success" });
     } catch (error) {
       console.error("Export failed", error);
       setToast({ message: "Failed exporting PDF. Please try again.", type: "error" });
+    } finally {
+      setIsExporting(false);
     }
-    setIsExporting(false);
   };
 
   const handleExportJPG = async () => {
     setIsExporting(true);
     setExportModal(false);
     try {
-      const pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
-      if (pages.length > 0) {
-        for (let i = 0; i < pages.length; i++) {
-          const page = pages[i];
-          const imgCanvas = await capturePageA4Canvas(page);
-          const dataUrl = imgCanvas.toDataURL('image/jpeg', 1.0);
-          const link = document.createElement('a');
-          link.download = `Studlyf_${documentType}_Letter_Page_${i + 1}.jpg`;
-          link.href = dataUrl;
-          link.click();
-        }
-        setToast({ message: "JPG Image exported successfully!", type: "success" });
+      let pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
+      if (pages.length === 0) {
+        const container = document.getElementById('document-preview-container');
+        if (container) pages = [container as HTMLElement];
       }
+
+      if (pages.length === 0) {
+        setToast({ message: "No document preview page found to export.", type: "error" });
+        return;
+      }
+
+      const candName = (candidateDetails as any)?.candidateName || 'Candidate';
+      const safeName = candName.replace(/\s+/g, '_');
+
+      for (let i = 0; i < pages.length; i++) {
+        const page = pages[i];
+        const imgCanvas = await capturePageA4Canvas(page);
+        const dataUrl = imgCanvas.toDataURL('image/jpeg', 0.95);
+        const link = document.createElement('a');
+        link.download = `Studlyf_${documentType === 'offer' ? 'Offer' : 'Joining'}_Letter_${safeName}_Page_${i + 1}.jpg`;
+        link.href = dataUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+      setToast({ message: "JPG Image exported successfully!", type: "success" });
     } catch (error) {
       console.error("JPG Export failed", error);
-      setToast({ message: "Failed exporting JPG.", type: "error" });
+      setToast({ message: "Failed exporting JPG image.", type: "error" });
+    } finally {
+      setIsExporting(false);
     }
-    setIsExporting(false);
   };
 
   const handleExportDOCX = () => {
@@ -391,20 +452,26 @@ export default function BuilderHeader() {
         '</tr></table></body></html>'
       ].join('\n');
 
+      const candName = (candidateDetails as any)?.candidateName || 'Candidate';
+      const safeName = candName.replace(/\s+/g, '_');
+      const filename = `Studlyf_${documentType === 'offer' ? 'Offer' : 'Joining'}_Letter_${safeName}.doc`;
+
       const blob = new Blob(['\ufeff', wordDocHtml], { type: 'application/msword' });
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Studlyf_${documentType}_Letter.doc`;
+      link.download = filename;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      setToast({ message: "Editable Word (DOCX) document exported successfully!", type: "success" });
+      URL.revokeObjectURL(url);
+      setToast({ message: "Editable Word (DOC) document exported successfully!", type: "success" });
     } catch (error) {
       console.error("DOCX Export failed", error);
       setToast({ message: "Failed exporting Word document.", type: "error" });
+    } finally {
+      setIsExporting(false);
     }
-    setIsExporting(false);
   };
 
   // Title rename state
@@ -503,26 +570,45 @@ export default function BuilderHeader() {
             <span>Send via Email</span>
           </button>
           
-          <div className="relative">
+          <div className="relative" ref={exportDropdownRef}>
             <button 
+              type="button"
               onClick={() => setExportModal(!exportModal)}
               disabled={isExporting}
-              className="flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-bold text-white bg-primary hover:bg-primary/90 shadow-sm transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
+              className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-bold text-white bg-gradient-to-r from-[#ff2a5f] via-[#d946ef] to-[#2d136f] hover:opacity-95 shadow-md shadow-pink-500/25 transition-all disabled:opacity-70 disabled:cursor-not-allowed cursor-pointer"
             >
               {isExporting ? <Loader2 size={15} className="animate-spin" /> : <Download size={15} />}
               <span>{isExporting ? 'Exporting...' : 'Export Letter'}</span>
             </button>
 
             {exportModal && (
-              <div className="absolute right-0 top-full mt-2 w-52 bg-white rounded-xl shadow-xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50">
-                <button onClick={handleExportPDF} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors border-b border-slate-100 flex items-center justify-between">
-                  Export as PDF <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">PDF</span>
+              <div className="absolute right-0 top-full mt-2 w-56 bg-white rounded-xl shadow-2xl border border-slate-200 overflow-hidden animate-in fade-in slide-in-from-top-2 z-50 p-1">
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleExportPDF(); }}
+                  onClick={(e) => { e.stopPropagation(); handleExportPDF(); }}
+                  className="w-full text-left px-4 py-3 text-xs font-bold text-slate-800 hover:bg-slate-100 hover:text-primary rounded-lg transition-colors border-b border-slate-100 flex items-center justify-between cursor-pointer"
+                >
+                  <span>Export as PDF</span>
+                  <span className="text-[10px] bg-red-50 text-red-600 border border-red-200 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">PDF</span>
                 </button>
-                <button onClick={handleExportDOCX} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors border-b border-slate-100 flex items-center justify-between">
-                  Export as DOCX <span className="text-[10px] bg-primary/10 text-primary px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Word</span>
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleExportDOCX(); }}
+                  onClick={(e) => { e.stopPropagation(); handleExportDOCX(); }}
+                  className="w-full text-left px-4 py-3 text-xs font-bold text-slate-800 hover:bg-slate-100 hover:text-primary rounded-lg transition-colors border-b border-slate-100 flex items-center justify-between cursor-pointer"
+                >
+                  <span>Export as DOCX</span>
+                  <span className="text-[10px] bg-blue-50 text-blue-600 border border-blue-200 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">Word</span>
                 </button>
-                <button onClick={handleExportJPG} className="w-full text-left px-4 py-3 text-xs font-bold text-slate-700 hover:bg-slate-50 hover:text-primary transition-colors flex items-center justify-between">
-                  Export as Image <span className="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">JPG</span>
+                <button
+                  type="button"
+                  onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); handleExportJPG(); }}
+                  onClick={(e) => { e.stopPropagation(); handleExportJPG(); }}
+                  className="w-full text-left px-4 py-3 text-xs font-bold text-slate-800 hover:bg-slate-100 hover:text-primary rounded-lg transition-colors flex items-center justify-between cursor-pointer"
+                >
+                  <span>Export as Image</span>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-600 border border-emerald-200 px-1.5 py-0.5 rounded uppercase tracking-wider font-bold">JPG</span>
                 </button>
               </div>
             )}
@@ -530,9 +616,6 @@ export default function BuilderHeader() {
 
         </div>
       </header>
-
-      {/* Backdrop for modals */}
-      {exportModal && <div className="fixed inset-0 z-20" onClick={() => setExportModal(false)} />}
 
       {/* ── Email Wizard Modal ─────────────────────────────────────────────── */}
       {emailModalOpen && (
@@ -618,7 +701,7 @@ export default function BuilderHeader() {
                   <button
                     type="button"
                     onClick={handleFormatNext}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-sm transition-all"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#ff2a5f] via-[#d946ef] to-[#2d136f] hover:opacity-95 shadow-md shadow-pink-500/25 active:scale-[0.99] transition-all cursor-pointer"
                   >
                     Next <ChevronRight size={16} />
                   </button>
@@ -662,14 +745,14 @@ export default function BuilderHeader() {
                   <button
                     type="button"
                     onClick={() => { setEmailStep('format'); setEmailError(''); }}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-100 border border-slate-300 transition-colors cursor-pointer"
                   >
                     <ChevronLeft size={15} /> Back
                   </button>
                   <button
                     type="button"
                     onClick={handleRenameNext}
-                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-primary hover:bg-primary/90 shadow-sm transition-all"
+                    className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#ff2a5f] via-[#d946ef] to-[#2d136f] hover:opacity-95 shadow-md shadow-pink-500/25 active:scale-[0.99] transition-all cursor-pointer"
                   >
                     Next <ChevronRight size={16} />
                   </button>
@@ -742,14 +825,14 @@ export default function BuilderHeader() {
                   <button
                     type="button"
                     onClick={() => { setEmailStep('rename'); setEmailError(''); }}
-                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-semibold text-slate-600 hover:bg-slate-50 border border-slate-200 transition-colors"
+                    className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-700 hover:bg-slate-100 border border-slate-300 transition-colors cursor-pointer"
                   >
                     <ChevronLeft size={15} /> Back
                   </button>
                   <button
                     type="submit"
                     disabled={isSendingEmail}
-                    className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-primary to-secondary shadow-md shadow-primary/20 hover:shadow-lg hover:-translate-y-0.5 transition-all disabled:opacity-75 disabled:cursor-not-allowed disabled:transform-none"
+                    className="flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-bold text-white bg-gradient-to-r from-[#ff2a5f] via-[#d946ef] to-[#2d136f] hover:opacity-95 shadow-lg shadow-pink-500/25 active:scale-[0.99] transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                   >
                     {isSendingEmail ? (
                       <>

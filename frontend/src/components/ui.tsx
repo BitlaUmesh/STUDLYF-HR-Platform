@@ -1,6 +1,7 @@
 import type { ButtonHTMLAttributes, HTMLAttributes, InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { useState } from 'react';
 import { clsx } from 'clsx';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Info, Check, ShieldCheck } from 'lucide-react';
 import type { ApplicationStatus } from '../api/applications';
 import { STATUS_LABELS } from '../api/applications';
 
@@ -333,5 +334,96 @@ export function EmptyState({
       )}
       {action && <div className="mt-5">{action}</div>}
     </Card>
+  );
+}
+
+// ── Password Requirements & Metrics ───────────────────────────────────────
+export function getPasswordMetrics(password: string) {
+  return [
+    { key: 'length', label: 'At least 8 characters', met: password.length >= 8 },
+    { key: 'capital', label: 'At least one capital letter (A-Z)', met: /[A-Z]/.test(password) },
+    { key: 'small', label: 'At least one small letter (a-z)', met: /[a-z]/.test(password) },
+    { key: 'number', label: 'At least one number (0-9)', met: /[0-9]/.test(password) },
+    { key: 'special', label: 'At least one special character (@ . - /)', met: /[@\.\-\/]/.test(password) },
+  ];
+}
+
+export function validatePasswordMetrics(password: string): { valid: boolean; errorMsg?: string } {
+  if (password.length < 8) return { valid: false, errorMsg: 'Password must be at least 8 characters long.' };
+  if (!/[A-Z]/.test(password)) return { valid: false, errorMsg: 'Password must contain at least one capital letter (A-Z).' };
+  if (!/[a-z]/.test(password)) return { valid: false, errorMsg: 'Password must contain at least one small letter (a-z).' };
+  if (!/[0-9]/.test(password)) return { valid: false, errorMsg: 'Password must contain at least one number (0-9).' };
+  if (!/[@\.\-\/]/.test(password)) return { valid: false, errorMsg: 'Password must contain at least one special character (@ . - /).' };
+  return { valid: true };
+}
+
+export function PasswordRequirementsInfo({ password }: { password: string }) {
+  const [open, setOpen] = useState(false);
+  const metrics = getPasswordMetrics(password);
+
+  return (
+    <div className="relative inline-flex items-center">
+      <button
+        type="button"
+        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(!open); }}
+        className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors cursor-pointer border border-indigo-200"
+        title="View Password Requirements"
+      >
+        <Info size={12} className="stroke-[2.5]" />
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className="absolute left-0 top-full mt-2 w-72 p-3.5 bg-white rounded-xl shadow-2xl border border-slate-200 z-50 animate-in fade-in slide-in-from-top-1 text-xs space-y-2">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-2">
+              <span className="font-bold text-slate-800 flex items-center gap-1.5">
+                <ShieldCheck size={14} className="text-indigo-600" /> Password Requirements
+              </span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="text-slate-400 hover:text-slate-600 font-bold"
+              >
+                ✕
+              </button>
+            </div>
+            <div className="space-y-1.5 pt-1">
+              {metrics.map((m) => (
+                <div key={m.key} className={`flex items-center gap-2 transition-colors ${m.met ? 'text-emerald-600 font-bold' : 'text-slate-500'}`}>
+                  <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] ${m.met ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-100 text-slate-400 border border-slate-200'}`}>
+                    {m.met ? <Check size={10} className="stroke-[3]" /> : '•'}
+                  </div>
+                  <span>{m.label}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+export function PasswordMetricsList({ password }: { password: string }) {
+  const metrics = getPasswordMetrics(password);
+
+  return (
+    <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5 text-xs mt-2">
+      <div className="flex items-center gap-1.5 font-bold text-slate-700 pb-1 border-b border-slate-200/60">
+        <ShieldCheck size={14} className="text-indigo-600" />
+        <span>Password Requirements:</span>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-0.5">
+        {metrics.map((m) => (
+          <div key={m.key} className={`flex items-center gap-2 transition-colors ${m.met ? 'text-emerald-600 font-bold' : 'text-slate-500'}`}>
+            <div className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 text-[10px] ${m.met ? 'bg-emerald-500 text-white font-bold' : 'bg-slate-200 text-slate-400'}`}>
+              {m.met ? <Check size={10} className="stroke-[3]" /> : '•'}
+            </div>
+            <span className="text-[11px]">{m.label}</span>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
