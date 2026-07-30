@@ -1,5 +1,7 @@
 const nodemailer = require('nodemailer');
 
+let cachedTransporter = null;
+
 function getTransporter() {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
   const port = parseInt(process.env.SMTP_PORT || '587');
@@ -10,45 +12,45 @@ function getTransporter() {
     return null;
   }
 
-  try {
-    return nodemailer.createTransport({
-      host,
-      port,
-      secure: port === 465,
-      auth: { user, pass },
-    });
-  } catch (err) {
-    console.error('[SMTP Transporter Creation Error]', err.message);
-    return null;
+  if (!cachedTransporter) {
+    try {
+      cachedTransporter = nodemailer.createTransport({
+        host,
+        port,
+        secure: port === 465,
+        auth: { user, pass },
+        connectionTimeout: 10000, // 10s connection timeout
+        greetingTimeout: 10000,   // 10s greeting timeout
+        socketTimeout: 20000,     // 20s socket timeout
+        pool: true,               // Keep connections open for fast reuse
+        maxConnections: 5,
+        maxMessages: 100,
+      });
+    } catch (err) {
+      console.error('[SMTP Transporter Creation Error]', err.message);
+      return null;
+    }
   }
+
+  return cachedTransporter;
 }
 
 async function sendMailSafe(options) {
   const transporter = getTransporter();
   if (!transporter || typeof transporter.sendMail !== 'function') {
-    console.log('[SMTP SKIPPED] Email credentials not configured. Subject:', options.subject);
-    return { ok: true, skipped: true, message: 'SMTP credentials not configured' };
+    console.warn('[SMTP WARNING] Email credentials not configured on server.');
+    return { ok: false, error: 'SMTP credentials (SMTP_USER / SMTP_PASS) not configured on backend server' };
   }
 
-  // High Priority, Alert & Deliverability Headers
-  const defaultHeaders = {
-    'X-Priority': '1', // 1 = Highest / Urgent
-    'X-MSMail-Priority': 'High',
-    'Importance': 'High',
-    'Priority': 'urgent',
-    'X-Auto-Response-Suppress': 'OOF, AutoReply',
-  };
+  // Use configured FROM address or fallback to authenticated SMTP_USER to pass SPF/DKIM
+  const defaultFrom = process.env.SMTP_FROM || (process.env.SMTP_USER ? `STUDLYF HR <${process.env.SMTP_USER}>` : 'STUDLYF HR <no-reply@studlyf.com>');
 
   const mailOptions = {
+    from: options.from || defaultFrom,
     ...options,
-    priority: 'high',
-    headers: {
-      ...defaultHeaders,
-      ...(options.headers || {}),
-    },
   };
 
-  // Generate plain text alternative for multipart MIME deliverability (prevents spam filters)
+  // Generate plain text alternative for multipart MIME deliverability
   if (options.html && !options.text) {
     mailOptions.text = options.html
       .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')

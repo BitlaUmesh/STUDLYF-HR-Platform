@@ -178,8 +178,8 @@ const handleSendDocument = async (req, res, next) => {
       attachment: parsed.data.attachment,
     });
 
-    if (result && result.ok === false && result.error) {
-      return res.status(500).json({ error: `Email failed: ${result.error}` });
+    if (!result || result.ok === false) {
+      return res.status(500).json({ error: result?.error || 'Failed to send email' });
     }
 
     return res.status(200).json({ message: 'Email sent successfully!' });

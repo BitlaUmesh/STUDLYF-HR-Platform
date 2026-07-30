@@ -112,26 +112,29 @@ export default function BuilderHeader() {
 
   // ─── File generation helpers ────────────────────────────────────────────────
 
-  const capturePageA4Canvas = async (page: HTMLElement) => {
+  const capturePageA4Canvas = async (page: HTMLElement, isForEmail = false) => {
     const orig = { w: page.style.width, mw: page.style.maxWidth, nw: page.style.minWidth, h: page.style.height };
     page.style.width = '794px';
     page.style.maxWidth = '794px';
     page.style.minWidth = '794px';
     page.style.height = '1123px';
 
+    const quality = isForEmail ? 0.75 : 0.95;
+    const pixelRatio = isForEmail ? 1.2 : 2;
+
     let canvas: HTMLCanvasElement;
     try {
       canvas = await htmlToImage.toCanvas(page, {
-        quality: 0.95,
-        pixelRatio: 2,
+        quality,
+        pixelRatio,
         skipFonts: true,
         fontEmbedCSS: '',
         cacheBust: false,
       });
     } catch (e) {
-      console.warn('[Export Warning] High-DPI canvas export failed, trying standard fallback:', e);
+      console.warn('[Export Warning] Canvas export failed, trying standard fallback:', e);
       canvas = await htmlToImage.toCanvas(page, {
-        quality: 0.95,
+        quality,
         skipFonts: true,
         fontEmbedCSS: '',
       });
@@ -146,12 +149,12 @@ export default function BuilderHeader() {
 
   const generatePdfBase64 = async (): Promise<string> => {
     const pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
-    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pdf = new jsPDF('p', 'mm', 'a4', true); // Enable PDF compression
     const pdfW = pdf.internal.pageSize.getWidth();
     const pdfH = pdf.internal.pageSize.getHeight();
     for (let i = 0; i < pages.length; i++) {
-      const canvas = await capturePageA4Canvas(pages[i]);
-      const imgData = canvas.toDataURL('image/jpeg', 1.0);
+      const canvas = await capturePageA4Canvas(pages[i], true);
+      const imgData = canvas.toDataURL('image/jpeg', 0.75);
       if (i > 0) pdf.addPage();
       pdf.addImage(imgData, 'JPEG', 0, 0, pdfW, pdfH, undefined, 'FAST');
     }
@@ -162,8 +165,8 @@ export default function BuilderHeader() {
   const generateImageBase64 = async (): Promise<string> => {
     const pages = Array.from(document.querySelectorAll('.a4-page')) as HTMLElement[];
     if (pages.length === 0) throw new Error('No page found');
-    const canvas = await capturePageA4Canvas(pages[0]);
-    return canvas.toDataURL('image/jpeg', 1.0).split(',')[1];
+    const canvas = await capturePageA4Canvas(pages[0], true);
+    return canvas.toDataURL('image/jpeg', 0.80).split(',')[1];
   };
 
   const generateWordBase64 = (): string => {
