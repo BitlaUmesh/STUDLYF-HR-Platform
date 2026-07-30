@@ -156,11 +156,11 @@ export default function LivePreview() {
                               {safeCd.companyName.split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
                             </div>
                           )}
-                          <div className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{safeCd.companyAddress}</div>
                         </div>
                       </div>
                       
                       <div className="text-right text-sm space-y-1 font-medium text-slate-500">
+                        {safeCd.companyAddress && <div className="whitespace-pre-wrap">{safeCd.companyAddress}</div>}
                         {safeCd.companyPhone && <div>{safeCd.companyPhone}</div>}
                         {safeCd.companyEmail && <div>{safeCd.companyEmail}</div>}
                         {safeCd.companyWebsite && <div>{safeCd.companyWebsite}</div>}
