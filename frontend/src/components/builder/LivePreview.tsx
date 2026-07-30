@@ -144,23 +144,23 @@ export default function LivePreview() {
               {/* Header Details (Only on First Page) */}
               {isFirstPage && !safeBranding.letterheadUrl && (
                 <>
-                  {headerStyle === 'split' && (
+                  {(headerStyle === 'split' || (headerStyle !== 'centered' && headerStyle !== 'left')) && (
                     <div className="flex justify-between items-start mb-6">
                       <div className="flex items-center gap-4 max-w-[60%]">
                         {safeBranding.logoUrl && (
                           <img src={safeBranding.logoUrl} alt="Company Logo" crossOrigin="anonymous" className="w-20 h-20 object-contain shrink-0" />
                         )}
                         <div>
-                          {safeCd.companyName && (
+                          {(safeCd.companyName || 'Studlyf Inc.') && (
                             <div style={{ color: safeBranding.borderColors?.top || '#2D136F', fontSize: '20px', fontWeight: 700, lineHeight: 1.1, textTransform: 'uppercase' }}>
-                              {safeCd.companyName.split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
+                              {(safeCd.companyName || 'Studlyf Inc.').split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
                             </div>
                           )}
                         </div>
                       </div>
                       
                       <div className="text-right text-sm space-y-1 font-medium text-slate-500">
-                        {safeCd.companyAddress && <div className="whitespace-pre-wrap">{safeCd.companyAddress}</div>}
+                        <div className="whitespace-pre-wrap">{safeCd.companyAddress || 'Hyderabad, Telangana, India'}</div>
                         {safeCd.companyPhone && <div>{safeCd.companyPhone}</div>}
                         {safeCd.companyEmail && <div>{safeCd.companyEmail}</div>}
                         {safeCd.companyWebsite && <div>{safeCd.companyWebsite}</div>}
