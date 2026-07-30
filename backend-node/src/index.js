@@ -66,7 +66,7 @@ app.use(cookieParser());
 app.use('/api/uploads', express.static(path.join(__dirname, '../uploads')));
 
 // ── Health Check ──────────────────────────────────────────────────────────────
-app.get('/health', (req, res) => {
+app.get(['/health', '/api/health'], (req, res) => {
   res.json({ status: 'healthy', service: 'studlyf-hr-api', version: '2.0.0' });
 });
 
