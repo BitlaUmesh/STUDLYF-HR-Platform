@@ -19,12 +19,16 @@ function getTransporter() {
 
   if (!cachedTransporter) {
     try {
+      const ipv4Lookup = (hostname, options, callback) => {
+        return dns.lookup(hostname, { family: 4 }, callback);
+      };
+
       const isGmail = host.includes('gmail.com');
       const transportConfig = isGmail
         ? {
             service: 'gmail',
             auth: { user, pass },
-            family: 4,                 // Force IPv4 addressing
+            lookup: ipv4Lookup,
             connectionTimeout: 20000, // 20s connection timeout for cloud hosts
             greetingTimeout: 20000,   // 20s greeting timeout
             socketTimeout: 30000,     // 30s socket timeout
@@ -37,7 +41,7 @@ function getTransporter() {
             port,
             secure: port === 465,
             auth: { user, pass },
-            family: 4,
+            lookup: ipv4Lookup,
             connectionTimeout: 20000,
             greetingTimeout: 20000,
             socketTimeout: 30000,
