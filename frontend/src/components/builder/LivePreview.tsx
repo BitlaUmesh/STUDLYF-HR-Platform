@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useDocumentBuilderStore, DEFAULT_DOCUMENT_CONTENT } from "../../store/documentBuilderStore";
+import { useDocumentBuilderStore, DEFAULT_DOCUMENT_CONTENT, type CandidateDetails, type BrandingDetails } from "../../store/documentBuilderStore";
 import { paginateHtmlContent } from "../../utils/pagination";
 
 export default function LivePreview() {
@@ -14,7 +14,7 @@ export default function LivePreview() {
 
     const getRenderedContent = () => {
       let htmlContent = (typeof content === 'string' && content.trim() !== '') ? content : DEFAULT_DOCUMENT_CONTENT;
-      const details = candidateDetails || {};
+      const details: Partial<CandidateDetails> = candidateDetails || {};
       
       const variables: Record<string, string> = {
         '{{candidate_name}}': details.candidateName || '[Candidate Name]',
@@ -43,8 +43,8 @@ export default function LivePreview() {
       setIsPaginating(true);
       const renderedHtml = getRenderedContent();
       
-      const safeBr = branding || {};
-      const safeCd = candidateDetails || {};
+      const safeBr: Partial<BrandingDetails> = branding || {};
+      const safeCd: Partial<CandidateDetails> = candidateDetails || {};
       const hasLargeHeader = !!safeBr.letterheadUrl || !!safeBr.logoUrl || !!safeCd.companyName;
       const firstPageHeight = hasLargeHeader ? 600 : 800;
       const standardHeight = 900;
@@ -68,14 +68,14 @@ export default function LivePreview() {
   }, [content, candidateDetails, branding, templateConfig]);
 
   // Derived styles based on templateConfig
-  const safeBranding = branding || {
+  const safeBranding: Partial<BrandingDetails> = branding || {
     logoUrl: null,
     letterheadUrl: null,
     signatureUrl: null,
     sealUrl: null,
-    primaryColor: '#2D136F',
-    secondaryColor: '#5D22D8',
+    brandColor: '#2D136F',
     fontFamily: 'Times New Roman',
+    fontSize: '11pt',
     borderColors: {
       top: '#2D136F',
       bottom: '#2D136F',
@@ -83,7 +83,7 @@ export default function LivePreview() {
     }
   };
   
-  const safeCd = candidateDetails || {};
+  const safeCd: Partial<CandidateDetails> = candidateDetails || {};
   
   const showBorders = templateConfig ? templateConfig.borders.show : true;
   const borderTopColor = showBorders ? (safeBranding.borderColors?.top || '#2D136F') : 'transparent';
