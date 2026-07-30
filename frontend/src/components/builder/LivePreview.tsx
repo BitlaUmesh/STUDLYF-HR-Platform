@@ -9,36 +9,35 @@ export default function LivePreview() {
   const [pages, setPages] = useState<string[]>([]);
   const [isPaginating, setIsPaginating] = useState(true);
 
-  // Parse variables into the content string
-  const getRenderedContent = () => {
-    let htmlContent = (typeof content === 'string' && content.trim() !== '') ? content : DEFAULT_DOCUMENT_CONTENT;
-    const details = candidateDetails || {};
-    
-    const variables: Record<string, string> = {
-      '{{candidate_name}}': details.candidateName || '[Candidate Name]',
-      '{{candidate_email}}': details.candidateEmail || '[Candidate Email]',
-      '{{candidate_address}}': details.candidateAddress || '[Candidate Address]',
-      '{{job_title}}': details.jobTitle || '[Job Title]',
-      '{{department}}': details.department || '[Department]',
-      '{{work_mode}}': details.workMode || '[Work Mode]',
-      '{{joining_date}}': details.joiningDate || '[Joining Date]',
-      '{{salary}}': details.salary || '[Salary]',
-      '{{company_name}}': details.companyName || '[Company Name]',
-      '{{reporting_manager}}': details.reportingManager || '[Manager Name]',
-      '{{reporting_manager_designation}}': details.reportingManagerDesignation || '[Manager Designation]',
-      '{{hr_representative}}': details.hrRepresentative || '[HR Name]',
-    };
-
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-      htmlContent = htmlContent.replace(regex, `<span class="bg-yellow-100/60 border-b-2 border-yellow-300 font-bold text-slate-900 px-0.5">${value}</span>`);
-    });
-
-    return htmlContent;
-  };
-
   useEffect(() => {
     let isMounted = true;
+
+    const getRenderedContent = () => {
+      let htmlContent = (typeof content === 'string' && content.trim() !== '') ? content : DEFAULT_DOCUMENT_CONTENT;
+      const details = candidateDetails || {};
+      
+      const variables: Record<string, string> = {
+        '{{candidate_name}}': details.candidateName || '[Candidate Name]',
+        '{{candidate_email}}': details.candidateEmail || '[Candidate Email]',
+        '{{candidate_address}}': details.candidateAddress || '[Candidate Address]',
+        '{{job_title}}': details.jobTitle || '[Job Title]',
+        '{{department}}': details.department || '[Department]',
+        '{{work_mode}}': details.workMode || '[Work Mode]',
+        '{{joining_date}}': details.joiningDate || '[Joining Date]',
+        '{{salary}}': details.salary || '[Salary]',
+        '{{company_name}}': details.companyName || '[Company Name]',
+        '{{reporting_manager}}': details.reportingManager || '[Manager Name]',
+        '{{reporting_manager_designation}}': details.reportingManagerDesignation || '[Manager Designation]',
+        '{{hr_representative}}': details.hrRepresentative || '[HR Name]',
+      };
+
+      Object.entries(variables).forEach(([key, value]) => {
+        const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        htmlContent = htmlContent.replace(regex, `<span class="bg-yellow-100/60 border-b-2 border-yellow-300 font-bold text-slate-900 px-0.5">${value}</span>`);
+      });
+
+      return htmlContent;
+    };
     
     const generatePages = async () => {
       setIsPaginating(true);
@@ -151,11 +150,9 @@ export default function LivePreview() {
                           <img src={safeBranding.logoUrl} alt="Company Logo" crossOrigin="anonymous" className="w-20 h-20 object-contain shrink-0" />
                         )}
                         <div>
-                          {(safeCd.companyName || 'Studlyf Inc.') && (
-                            <div style={{ color: safeBranding.borderColors?.top || '#2D136F', fontSize: '20px', fontWeight: 700, lineHeight: 1.1, textTransform: 'uppercase' }}>
-                              {(safeCd.companyName || 'Studlyf Inc.').split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
-                            </div>
-                          )}
+                          <div style={{ color: safeBranding.borderColors?.top || '#2D136F', fontSize: '20px', fontWeight: 700, lineHeight: 1.1, textTransform: 'uppercase' }}>
+                            {(safeCd.companyName || 'Studlyf Inc.').split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
+                          </div>
                         </div>
                       </div>
                       
