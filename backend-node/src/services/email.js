@@ -23,32 +23,19 @@ function getTransporter() {
         return dns.lookup(hostname, { family: 4 }, callback);
       };
 
-      const isGmail = host.includes('gmail.com');
-      const transportConfig = isGmail
-        ? {
-            service: 'gmail',
-            auth: { user, pass },
-            lookup: ipv4Lookup,
-            connectionTimeout: 20000, // 20s connection timeout for cloud hosts
-            greetingTimeout: 20000,   // 20s greeting timeout
-            socketTimeout: 30000,     // 30s socket timeout
-            pool: true,               // Keep connections open for fast reuse
-            maxConnections: 5,
-            maxMessages: 100,
-          }
-        : {
-            host,
-            port,
-            secure: port === 465,
-            auth: { user, pass },
-            lookup: ipv4Lookup,
-            connectionTimeout: 20000,
-            greetingTimeout: 20000,
-            socketTimeout: 30000,
-            pool: true,
-            maxConnections: 5,
-            maxMessages: 100,
-          };
+      const transportConfig = {
+        host: host,
+        port: port,
+        secure: port === 465,
+        auth: { user, pass },
+        lookup: ipv4Lookup,
+        connectionTimeout: 20000,
+        greetingTimeout: 20000,
+        socketTimeout: 30000,
+        pool: true,
+        maxConnections: 5,
+        maxMessages: 100,
+      };
 
       cachedTransporter = nodemailer.createTransport(transportConfig);
     } catch (err) {
