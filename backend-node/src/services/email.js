@@ -1,4 +1,9 @@
 const nodemailer = require('nodemailer');
+const dns = require('dns');
+
+if (dns.setDefaultResultOrder) {
+  dns.setDefaultResultOrder('ipv4first');
+}
 
 let cachedTransporter = null;
 
@@ -19,6 +24,7 @@ function getTransporter() {
         port,
         secure: port === 465,
         auth: { user, pass },
+        family: 4,                 // Force IPv4 addressing to prevent ENETUNREACH errors on cloud hosting (Render)
         connectionTimeout: 10000, // 10s connection timeout
         greetingTimeout: 10000,   // 10s greeting timeout
         socketTimeout: 20000,     // 20s socket timeout
