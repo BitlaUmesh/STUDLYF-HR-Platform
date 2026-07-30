@@ -9,7 +9,7 @@ let cachedTransporter = null;
 
 function getTransporter() {
   const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.SMTP_PORT || '587');
+  const port = parseInt(process.env.SMTP_PORT || '465');
   const user = process.env.SMTP_USER;
   const pass = process.env.SMTP_PASS;
 
@@ -19,19 +19,34 @@ function getTransporter() {
 
   if (!cachedTransporter) {
     try {
-      cachedTransporter = nodemailer.createTransport({
-        host,
-        port,
-        secure: port === 465,
-        auth: { user, pass },
-        family: 4,                 // Force IPv4 addressing to prevent ENETUNREACH errors on cloud hosting (Render)
-        connectionTimeout: 10000, // 10s connection timeout
-        greetingTimeout: 10000,   // 10s greeting timeout
-        socketTimeout: 20000,     // 20s socket timeout
-        pool: true,               // Keep connections open for fast reuse
-        maxConnections: 5,
-        maxMessages: 100,
-      });
+      const isGmail = host.includes('gmail.com');
+      const transportConfig = isGmail
+        ? {
+            service: 'gmail',
+            auth: { user, pass },
+            family: 4,                 // Force IPv4 addressing
+            connectionTimeout: 20000, // 20s connection timeout for cloud hosts
+            greetingTimeout: 20000,   // 20s greeting timeout
+            socketTimeout: 30000,     // 30s socket timeout
+            pool: true,               // Keep connections open for fast reuse
+            maxConnections: 5,
+            maxMessages: 100,
+          }
+        : {
+            host,
+            port,
+            secure: port === 465,
+            auth: { user, pass },
+            family: 4,
+            connectionTimeout: 20000,
+            greetingTimeout: 20000,
+            socketTimeout: 30000,
+            pool: true,
+            maxConnections: 5,
+            maxMessages: 100,
+          };
+
+      cachedTransporter = nodemailer.createTransport(transportConfig);
     } catch (err) {
       console.error('[SMTP Transporter Creation Error]', err.message);
       return null;
