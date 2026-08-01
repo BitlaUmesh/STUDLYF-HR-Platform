@@ -197,7 +197,7 @@ router.patch('/:id/status', async (req, res, next) => {
       where: { id: req.params.id, hrId: req.hrId },
       include: {
         student: { select: { email: true } },
-        hr: { select: { fullName: true, companyName: true } },
+        hr: { select: { fullName: true, companyName: true, email: true } },
       },
     });
     if (!application) return res.status(404).json({ error: 'Application not found' });
@@ -213,6 +213,7 @@ router.patch('/:id/status', async (req, res, next) => {
         to: application.student.email,
         companyName: application.hr.companyName,
         status,
+        replyTo: application.hr ? `"${application.hr.fullName}" <${application.hr.email}>` : undefined,
       }).catch(console.error);
     }
 

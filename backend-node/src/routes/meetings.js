@@ -60,6 +60,7 @@ router.post('/', authenticate, async (req, res, next) => {
       title,
       scheduledAt: startTime,
       calendlyLink: schedulingUrl,
+      replyTo: application.hr ? `"${application.hr.fullName}" <${application.hr.email}>` : undefined,
     });
 
     return res.status(201).json(meeting);
@@ -114,6 +115,7 @@ router.delete('/:id', authenticate, async (req, res, next) => {
         hrName: meeting.application.hr.fullName,
         companyName: meeting.application.hr.companyName,
         title: meeting.title,
+        replyTo: meeting.application.hr ? `"${meeting.application.hr.fullName}" <${meeting.application.hr.email}>` : undefined,
       });
     }
 
@@ -152,6 +154,7 @@ router.patch('/:id/reschedule', authenticate, async (req, res, next) => {
         title: `${meeting.title} (Rescheduled)`,
         scheduledAt: startTime,
         calendlyLink: meeting.calendlyEventUrl,
+        replyTo: meeting.application.hr ? `"${meeting.application.hr.fullName}" <${meeting.application.hr.email}>` : undefined,
       });
     }
 

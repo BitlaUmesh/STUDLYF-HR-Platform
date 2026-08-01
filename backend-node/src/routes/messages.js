@@ -32,6 +32,7 @@ router.post('/', async (req, res, next) => {
       hrName: hr.fullName,
       companyName: hr.companyName,
       preview: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
+      replyTo: hr ? `"${hr.fullName}" <${hr.email}>` : undefined,
     });
 
     return res.status(201).json(message);
