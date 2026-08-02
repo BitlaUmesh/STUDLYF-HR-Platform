@@ -54,13 +54,13 @@ router.post('/', authenticate, async (req, res, next) => {
 
     // 3. Send email notification to student with exact fixed interview time
     await sendMeetingInvite({
+      user: application.hr,
       to: application.student.email,
       hrName: application.hr.fullName,
       companyName: application.hr.companyName,
       title,
       scheduledAt: startTime,
       calendlyLink: schedulingUrl,
-      replyTo: application.hr ? `"${application.hr.fullName}" <${application.hr.email}>` : undefined,
     });
 
     return res.status(201).json(meeting);
@@ -111,11 +111,11 @@ router.delete('/:id', authenticate, async (req, res, next) => {
     // Send cancellation email
     if (meeting.application) {
       await sendMeetingCancellation({
+        user: meeting.application.hr,
         to: meeting.application.student.email,
         hrName: meeting.application.hr.fullName,
         companyName: meeting.application.hr.companyName,
         title: meeting.title,
-        replyTo: meeting.application.hr ? `"${meeting.application.hr.fullName}" <${meeting.application.hr.email}>` : undefined,
       });
     }
 
@@ -148,13 +148,13 @@ router.patch('/:id/reschedule', authenticate, async (req, res, next) => {
 
     if (meeting.application) {
       await sendMeetingInvite({
+        user: meeting.application.hr,
         to: meeting.application.student.email,
         hrName: meeting.application.hr.fullName,
         companyName: meeting.application.hr.companyName,
         title: `${meeting.title} (Rescheduled)`,
         scheduledAt: startTime,
         calendlyLink: meeting.calendlyEventUrl,
-        replyTo: meeting.application.hr ? `"${meeting.application.hr.fullName}" <${meeting.application.hr.email}>` : undefined,
       });
     }
 

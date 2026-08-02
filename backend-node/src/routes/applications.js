@@ -210,10 +210,10 @@ router.patch('/:id/status', async (req, res, next) => {
     // Send email notification for significant status changes
     if (['offered', 'rejected', 'reviewing'].includes(status)) {
       sendApplicationStatusUpdate({
+        user: application.hr,
         to: application.student.email,
         companyName: application.hr.companyName,
         status,
-        replyTo: application.hr ? `"${application.hr.fullName}" <${application.hr.email}>` : undefined,
       }).catch(console.error);
     }
 

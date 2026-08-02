@@ -1,15 +1,25 @@
 import { useEffect, useState } from 'react';
-import { Save, User, Building2, FileText, Lock, CheckCircle2, AlertCircle, Image as ImageIcon, Camera, Eye, EyeOff } from 'lucide-react';
-import { profileApi, type FullProfile, type CompanyBranding } from '../api/profile';
+import { Save, User, Building2, FileText, Lock, CheckCircle2, AlertCircle, Image as ImageIcon, Camera, Eye, EyeOff, Mail, ShieldCheck, Server, RefreshCw } from 'lucide-react';
+import { profileApi, type FullProfile, type CompanyBranding, type EmailSettings } from '../api/profile';
 import { Card, Button, Input, PageHeader, Avatar, PasswordRequirementsInfo, PasswordMetricsList, validatePasswordMetrics } from '../components/ui';
 import { getErrorMessage } from '../api/client';
 import { useAuthStore } from '../store/authStore';
 
 export function SettingsPage() {
   const [profile, setProfile] = useState<FullProfile | null>(null);
-  const [activeTab, setActiveTab] = useState<'personal' | 'branding' | 'defaults' | 'security'>('personal');
+  const [activeTab, setActiveTab] = useState<'personal' | 'branding' | 'defaults' | 'security' | 'email'>('personal');
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // Email & SMTP State
+  const [emailSettings, setEmailSettings] = useState<EmailSettings | null>(null);
+  const [smtpHost, setSmtpHost] = useState('');
+  const [smtpPort, setSmtpPort] = useState(587);
+  const [smtpUser, setSmtpUser] = useState('');
+  const [smtpPass, setSmtpPass] = useState('');
+  const [smtpFrom, setSmtpFrom] = useState('');
+  const [smtpSaving, setSmtpSaving] = useState(false);
+  const [smtpMsg, setSmtpMsg] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // Password state
   const [currentPassword, setCurrentPassword] = useState('');
@@ -26,6 +36,16 @@ export function SettingsPage() {
 
   useEffect(() => {
     profileApi.get().then(({ data }) => setProfile(data));
+    profileApi.getEmailSettings().then(({ data }) => {
+      setEmailSettings(data);
+      setSmtpHost(data.smtpHost || '');
+      setSmtpPort(data.smtpPort || 587);
+      setSmtpUser(data.smtpUser || '');
+      setSmtpFrom(data.smtpFrom || '');
+      if (data.isPassSet) {
+        setSmtpPass('••••••••••••');
+      }
+    }).catch(console.error);
   }, []);
 
   function update<K extends keyof FullProfile>(field: K, value: FullProfile[K]) {
@@ -253,6 +273,18 @@ export function SettingsPage() {
         >
           <Lock size={16} />
           <span>Security & Password</span>
+        </button>
+
+        <button
+          onClick={() => setActiveTab('email')}
+          className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+            activeTab === 'email'
+              ? 'bg-indigo-600 text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
+        >
+          <Mail size={16} />
+          <span>Email & Integrations</span>
         </button>
       </div>
 
@@ -580,6 +612,168 @@ export function SettingsPage() {
             </Button>
           </form>
         </Card>
+      )}
+
+      {/* Tab 5: Email & Integrations */}
+      {activeTab === 'email' && (
+        <div className="space-y-6">
+          {/* Card 1: Google Workspace Status */}
+          <Card className="p-6 space-y-4">
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 border border-blue-200 flex items-center justify-center text-blue-600">
+                  <svg className="w-5 h-5" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"/>
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Google Workspace / Gmail Integration</h3>
+                  <p className="text-xs text-slate-500">Send emails directly out of your Google Workspace or Gmail inbox with 0 DNS setup required.</p>
+                </div>
+              </div>
+
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                emailSettings?.hasGoogleConnected
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}>
+                {emailSettings?.hasGoogleConnected ? 'Connected & Ready' : 'Not Connected'}
+              </span>
+            </div>
+
+            <div className="pt-2 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-t border-slate-100">
+              <p className="text-xs text-slate-600">
+                {emailSettings?.hasGoogleConnected
+                  ? `Authenticated as ${profile.email}. Emails are sent directly using Google's HTTPS Gmail API.`
+                  : 'Connect your Google account to enable 1-click email sending directly from your Gmail / Google Workspace inbox.'}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const backendUrl = (import.meta.env.VITE_API_URL || 'https://studlyf-hr-platform.onrender.com/api').replace(/\/$/, '');
+                  window.location.href = `${backendUrl}/auth/google`;
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs shrink-0 cursor-pointer"
+              >
+                <RefreshCw size={14} />
+                {emailSettings?.hasGoogleConnected ? 'Reconnect Google Account' : 'Connect Google Workspace'}
+              </button>
+            </div>
+          </Card>
+
+          {/* Card 2: AES-256 Encrypted Custom SMTP Settings */}
+          <Card className="p-6 space-y-6">
+            <div className="flex items-start justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-purple-50 border border-purple-200 flex items-center justify-center text-purple-600">
+                  <Server size={20} />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Custom SMTP Configuration</h3>
+                  <p className="text-xs text-slate-500">For non-Google email providers (Hostinger, Microsoft 365, Zoho, private webmail).</p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 border border-slate-200 text-[11px] font-bold text-slate-600">
+                <ShieldCheck size={13} className="text-indigo-600" />
+                <span>AES-256 Encrypted</span>
+              </div>
+            </div>
+
+            {smtpMsg && (
+              <div className={`p-3.5 rounded-xl border text-xs font-bold flex items-center gap-2 ${
+                smtpMsg.type === 'success' ? 'bg-emerald-50 text-emerald-800 border-emerald-200' : 'bg-red-50 text-red-800 border-red-200'
+              }`}>
+                {smtpMsg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                <span>{smtpMsg.text}</span>
+              </div>
+            )}
+
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              setSmtpSaving(true);
+              setSmtpMsg(null);
+              try {
+                const { data } = await profileApi.updateEmailSettings({
+                  smtpHost,
+                  smtpPort,
+                  smtpUser,
+                  smtpPass,
+                  smtpFrom,
+                });
+                setEmailSettings(data);
+                setSmtpMsg({ text: 'Custom SMTP settings saved and encrypted successfully!', type: 'success' });
+              } catch (err) {
+                setSmtpMsg({ text: getErrorMessage(err, 'Failed to save SMTP settings'), type: 'error' });
+              } finally {
+                setSmtpSaving(false);
+              }
+            }} className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="sm:col-span-2">
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">SMTP Host Server</label>
+                  <Input
+                    type="text"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="e.g. smtp.hostinger.com or smtp.office365.com"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">SMTP Port</label>
+                  <Input
+                    type="number"
+                    value={smtpPort}
+                    onChange={(e) => setSmtpPort(Number(e.target.value))}
+                    placeholder="587"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">SMTP Username / Email</label>
+                  <Input
+                    type="text"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    placeholder="e.g. hr@yourcompany.com"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">
+                    SMTP Password <span className="text-[10px] text-indigo-600 font-normal">(Saved with AES-256 encryption)</span>
+                  </label>
+                  <Input
+                    type="password"
+                    value={smtpPass}
+                    onChange={(e) => setSmtpPass(e.target.value)}
+                    placeholder="Enter SMTP password"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-600">Custom Sender Display Name (Optional)</label>
+                <Input
+                  type="text"
+                  value={smtpFrom}
+                  onChange={(e) => setSmtpFrom(e.target.value)}
+                  placeholder='e.g. "STUDLYF HR" <hr@yourcompany.com>'
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end">
+                <Button type="submit" loading={smtpSaving} size="sm" className="rounded-xl font-bold">
+                  {smtpSaving ? 'Saving & Encrypting…' : 'Save SMTP Settings'}
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
       )}
     </div>
   );

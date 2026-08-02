@@ -34,6 +34,14 @@ model User {
   defaultLineSpacing   String              @default("1.25")
   defaultLetterSpacing String              @default("0px")
   needsPasswordSetup   Boolean             @default(false)
+  googleAccessToken    String?
+  googleRefreshToken   String?
+  googleTokenExpiry    DateTime?
+  smtpHost             String?
+  smtpPort             Int?
+  smtpUser             String?
+  smtpPassEncrypted    String?
+  smtpFrom             String?
   branding             CompanyBranding?
   documents            Document[]
   recentEdits          RecentEdit[]

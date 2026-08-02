@@ -173,17 +173,18 @@ const handleSendDocument = async (req, res, next) => {
     }
 
     const result = await sendDocumentEmail({
+      user: doc.user,
       to: parsed.data.to_email,
       subject: parsed.data.subject,
       htmlContent: parsed.data.html_content,
       attachment: parsed.data.attachment,
-      replyTo: doc.user ? `"${doc.user.fullName}" <${doc.user.email}>` : undefined,
     });
 
     if (!result || result.ok === false) {
-      const errorMsg = result?.error || 'Failed to send email. Please check server SMTP configuration.';
+      const errorMsg = result?.error || 'Failed to send email. Please configure email settings.';
       console.error('[SEND-EMAIL FAILED]', errorMsg, '| To:', parsed.data.to_email);
-      return res.status(500).json({ error: errorMsg });
+      const statusCode = result?.code === 'EMAIL_NOT_CONFIGURED' ? 400 : 500;
+      return res.status(statusCode).json({ error: errorMsg, code: result?.code });
     }
 
     return res.status(200).json({ message: 'Email sent successfully!' });

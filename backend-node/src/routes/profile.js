@@ -181,4 +181,101 @@ router.put('/branding', async (req, res, next) => {
   }
 });
 
+// ── GET /api/profile/email-settings ──────────────────────────────────────────
+router.get('/email-settings', async (req, res, next) => {
+  try {
+    const user = await prisma.user.findUnique({
+      where: { id: req.hrId },
+      select: {
+        googleAccessToken: true,
+        googleRefreshToken: true,
+        smtpHost: true,
+        smtpPort: true,
+        smtpUser: true,
+        smtpPassEncrypted: true,
+        smtpFrom: true,
+      },
+    });
+
+    if (!user) return res.status(404).json({ error: 'User not found' });
+
+    const hasGoogleConnected = !!(user.googleAccessToken || user.googleRefreshToken);
+    const hasCustomSmtp = !!(user.smtpHost && user.smtpUser && user.smtpPassEncrypted);
+
+    return res.json({
+      hasGoogleConnected,
+      hasCustomSmtp,
+      isConfigured: hasGoogleConnected || hasCustomSmtp,
+      smtpHost: user.smtpHost || '',
+      smtpPort: user.smtpPort || 587,
+      smtpUser: user.smtpUser || '',
+      smtpFrom: user.smtpFrom || '',
+      isPassSet: !!user.smtpPassEncrypted,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// ── PUT /api/profile/email-settings ──────────────────────────────────────────
+const { encrypt } = require('../utils/encryption');
+
+const smtpSchema = z.object({
+  smtpHost: z.string().optional(),
+  smtpPort: z.number().or(z.string().transform(Number)).optional(),
+  smtpUser: z.string().optional(),
+  smtpPass: z.string().optional(),
+  smtpFrom: z.string().optional(),
+});
+
+router.put('/email-settings', async (req, res, next) => {
+  try {
+    const parsed = smtpSchema.safeParse(req.body);
+    if (!parsed.success) return res.status(422).json({ error: parsed.error.issues });
+
+    const { smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom } = parsed.data;
+
+    const updateData = {};
+    if (smtpHost !== undefined) updateData.smtpHost = smtpHost.trim() || null;
+    if (smtpPort !== undefined) updateData.smtpPort = smtpPort || 587;
+    if (smtpUser !== undefined) updateData.smtpUser = smtpUser.trim() || null;
+    if (smtpFrom !== undefined) updateData.smtpFrom = smtpFrom.trim() || null;
+
+    if (smtpPass && smtpPass.trim() !== '' && !smtpPass.startsWith('••••')) {
+      updateData.smtpPassEncrypted = encrypt(smtpPass.trim());
+    }
+
+    const updatedUser = await prisma.user.update({
+      where: { id: req.hrId },
+      data: updateData,
+      select: {
+        googleAccessToken: true,
+        googleRefreshToken: true,
+        smtpHost: true,
+        smtpPort: true,
+        smtpUser: true,
+        smtpPassEncrypted: true,
+        smtpFrom: true,
+      },
+    });
+
+    const hasGoogleConnected = !!(updatedUser.googleAccessToken || updatedUser.googleRefreshToken);
+    const hasCustomSmtp = !!(updatedUser.smtpHost && updatedUser.smtpUser && updatedUser.smtpPassEncrypted);
+
+    return res.json({
+      message: 'Email settings saved successfully',
+      hasGoogleConnected,
+      hasCustomSmtp,
+      isConfigured: hasGoogleConnected || hasCustomSmtp,
+      smtpHost: updatedUser.smtpHost || '',
+      smtpPort: updatedUser.smtpPort || 587,
+      smtpUser: updatedUser.smtpUser || '',
+      smtpFrom: updatedUser.smtpFrom || '',
+      isPassSet: !!updatedUser.smtpPassEncrypted,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 module.exports = router;

@@ -686,9 +686,9 @@ router.get('/google', (req, res) => {
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'openid email profile',
+    scope: 'openid email profile https://www.googleapis.com/auth/gmail.send',
     access_type: 'offline',
-    prompt: 'select_account',
+    prompt: 'consent select_account',
   });
   res.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params}`);
 });
@@ -716,7 +716,6 @@ router.get('/google/callback', async (req, res, next) => {
     // Must exactly match what was sent in Step 1
     const redirectUri = getGoogleRedirectUri(req);
 
-
     // Exchange code for tokens
     let tokenRes;
     try {
@@ -732,10 +731,22 @@ router.get('/google/callback', async (req, res, next) => {
       return res.redirect(`${targetFrontend}/login?error=google_token_failed`);
     }
 
-    const { access_token: googleAccessToken } = tokenRes.data;
+    const {
+      access_token: googleAccessToken,
+      refresh_token: googleRefreshToken,
+      expires_in: expiresIn,
+    } = tokenRes.data;
+
     if (!googleAccessToken) {
       return res.redirect(`${targetFrontend}/login?error=google_no_access_token`);
     }
+
+    const googleTokenExpiry = expiresIn ? new Date(Date.now() + expiresIn * 1000) : null;
+    const googleData = {
+      googleAccessToken,
+      ...(googleRefreshToken && { googleRefreshToken }),
+      ...(googleTokenExpiry && { googleTokenExpiry }),
+    };
 
     // Fetch Google user profile
     let googleUser;
@@ -767,11 +778,18 @@ router.get('/google/callback', async (req, res, next) => {
           companyName: email.split('@')[1]?.split('.')[0] || 'My Company',
           profilePhoto: picture || null,
           needsPasswordSetup: true,
+          ...googleData,
           branding: { create: {} },
         },
       });
-    } else if (picture && !user.profilePhoto) {
-      await prisma.user.update({ where: { id: user.id }, data: { profilePhoto: picture } });
+    } else {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          ...(picture && !user.profilePhoto ? { profilePhoto: picture } : {}),
+          ...googleData,
+        },
+      });
     }
 
     const accessToken = createAccessToken(user.id);

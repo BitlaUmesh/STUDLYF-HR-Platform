@@ -28,11 +28,11 @@ router.post('/', async (req, res, next) => {
 
     // Send email notification to student
     await sendMessageNotification({
+      user: hr,
       to: student.email,
       hrName: hr.fullName,
       companyName: hr.companyName,
       preview: content.substring(0, 100) + (content.length > 100 ? '...' : ''),
-      replyTo: hr ? `"${hr.fullName}" <${hr.email}>` : undefined,
     });
 
     return res.status(201).json(message);

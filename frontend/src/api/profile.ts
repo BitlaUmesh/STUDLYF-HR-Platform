@@ -41,6 +41,25 @@ export interface DashboardMetrics {
   timeSaved: string;
 }
 
+export interface EmailSettings {
+  hasGoogleConnected: boolean;
+  hasCustomSmtp: boolean;
+  isConfigured: boolean;
+  smtpHost: string;
+  smtpPort: number;
+  smtpUser: string;
+  smtpFrom: string;
+  isPassSet: boolean;
+}
+
+export interface UpdateSmtpPayload {
+  smtpHost?: string;
+  smtpPort?: number;
+  smtpUser?: string;
+  smtpPass?: string;
+  smtpFrom?: string;
+}
+
 export const profileApi = {
   get: () => apiClient.get<FullProfile>('/profile'),
   update: (payload: Partial<FullProfile>) => apiClient.put<FullProfile>('/profile', payload),
@@ -48,6 +67,9 @@ export const profileApi = {
     apiClient.put<CompanyBranding>('/profile/branding', payload),
   changePassword: (payload: { currentPassword: string; newPassword: string }) =>
     apiClient.post<{ message: string }>('/auth/change-password', payload),
+  getEmailSettings: () => apiClient.get<EmailSettings>('/profile/email-settings'),
+  updateEmailSettings: (payload: UpdateSmtpPayload) =>
+    apiClient.put<EmailSettings>('/profile/email-settings', payload),
 };
 
 export const dashboardApi = {
