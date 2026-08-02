@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
-import { Save, Download, Loader2, Mail, X, CheckCircle2, FileText, FileImage, ChevronLeft, ChevronRight, FileType, ArrowLeft, Edit3 } from "lucide-react";
+import { Save, Download, Loader2, Mail, X, CheckCircle2, FileText, FileImage, ChevronLeft, ChevronRight, FileType, ArrowLeft, Edit3, AlertCircle, Settings } from "lucide-react";
 import { useDocumentBuilderStore } from "../../store/documentBuilderStore";
 import { useAuthStore } from "../../store/authStore";
 import * as htmlToImage from "html-to-image";
