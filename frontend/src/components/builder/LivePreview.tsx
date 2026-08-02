@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useDocumentBuilderStore, DEFAULT_DOCUMENT_CONTENT } from "../../store/documentBuilderStore";
+import { useDocumentBuilderStore, DEFAULT_DOCUMENT_CONTENT, type CandidateDetails, type BrandingDetails } from "../../store/documentBuilderStore";
 import { paginateHtmlContent } from "../../utils/pagination";
 
 export default function LivePreview() {
@@ -9,43 +9,42 @@ export default function LivePreview() {
   const [pages, setPages] = useState<string[]>([]);
   const [isPaginating, setIsPaginating] = useState(true);
 
-  // Parse variables into the content string
-  const getRenderedContent = () => {
-    let htmlContent = (typeof content === 'string' && content.trim() !== '') ? content : DEFAULT_DOCUMENT_CONTENT;
-    const details = candidateDetails;
-    
-    const variables: Record<string, string> = {
-      '{{candidate_name}}': details.candidateName || '[Candidate Name]',
-      '{{candidate_email}}': details.candidateEmail || '[Candidate Email]',
-      '{{candidate_address}}': details.candidateAddress || '[Candidate Address]',
-      '{{job_title}}': details.jobTitle || '[Job Title]',
-      '{{department}}': details.department || '[Department]',
-      '{{work_mode}}': details.workMode || '[Work Mode]',
-      '{{joining_date}}': details.joiningDate || '[Joining Date]',
-      '{{salary}}': details.salary || '[Salary]',
-      '{{company_name}}': details.companyName || '[Company Name]',
-      '{{reporting_manager}}': details.reportingManager || '[Manager Name]',
-      '{{reporting_manager_designation}}': details.reportingManagerDesignation || '[Manager Designation]',
-      '{{hr_representative}}': details.hrRepresentative || '[HR Name]',
-    };
-
-    Object.entries(variables).forEach(([key, value]) => {
-      const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
-      htmlContent = htmlContent.replace(regex, `<span class="bg-yellow-100/60 border-b-2 border-yellow-300 font-bold text-slate-900 px-0.5">${value}</span>`);
-    });
-
-    return htmlContent;
-  };
-
   useEffect(() => {
     let isMounted = true;
+
+    const getRenderedContent = () => {
+      let htmlContent = (typeof content === 'string' && content.trim() !== '') ? content : DEFAULT_DOCUMENT_CONTENT;
+      const details: Partial<CandidateDetails> = candidateDetails || {};
+      
+      const variables: Record<string, string> = {
+        '{{candidate_name}}': details.candidateName || '[Candidate Name]',
+        '{{candidate_email}}': details.candidateEmail || '[Candidate Email]',
+        '{{candidate_address}}': details.candidateAddress || '[Candidate Address]',
+        '{{job_title}}': details.jobTitle || '[Job Title]',
+        '{{department}}': details.department || '[Department]',
+        '{{work_mode}}': details.workMode || '[Work Mode]',
+        '{{joining_date}}': details.joiningDate || '[Joining Date]',
+        '{{salary}}': details.salary || '[Salary]',
+        '{{company_name}}': details.companyName || '[Company Name]',
+        '{{reporting_manager}}': details.reportingManager || '[Manager Name]',
+        '{{reporting_manager_designation}}': details.reportingManagerDesignation || '[Manager Designation]',
+        '{{hr_representative}}': details.hrRepresentative || '[HR Name]',
+      };
+
+      Object.entries(variables).forEach(([key, value]) => {
+        const regex = new RegExp(key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g');
+        htmlContent = htmlContent.replace(regex, `<span class="bg-yellow-100/60 border-b-2 border-yellow-300 font-bold text-slate-900 px-0.5">${value}</span>`);
+      });
+
+      return htmlContent;
+    };
     
     const generatePages = async () => {
       setIsPaginating(true);
       const renderedHtml = getRenderedContent();
       
-      const safeBr = branding;
-      const safeCd = candidateDetails;
+      const safeBr: Partial<BrandingDetails> = branding || {};
+      const safeCd: Partial<CandidateDetails> = candidateDetails || {};
       const hasLargeHeader = !!safeBr.letterheadUrl || !!safeBr.logoUrl || !!safeCd.companyName;
       const firstPageHeight = hasLargeHeader ? 600 : 800;
       const standardHeight = 900;
@@ -69,8 +68,22 @@ export default function LivePreview() {
   }, [content, candidateDetails, branding, templateConfig]);
 
   // Derived styles based on templateConfig
-  const safeBranding = branding;
-  const safeCd = candidateDetails;
+  const safeBranding: Partial<BrandingDetails> = branding || {
+    logoUrl: null,
+    letterheadUrl: null,
+    signatureUrl: null,
+    sealUrl: null,
+    brandColor: '#2D136F',
+    fontFamily: 'Times New Roman',
+    fontSize: '11pt',
+    borderColors: {
+      top: '#2D136F',
+      bottom: '#2D136F',
+      divider: '#2D136F'
+    }
+  };
+  
+  const safeCd: Partial<CandidateDetails> = candidateDetails || {};
   
   const showBorders = templateConfig ? templateConfig.borders.show : true;
   const borderTopColor = showBorders ? (safeBranding.borderColors?.top || '#2D136F') : 'transparent';
@@ -130,23 +143,21 @@ export default function LivePreview() {
               {/* Header Details (Only on First Page) */}
               {isFirstPage && !safeBranding.letterheadUrl && (
                 <>
-                  {headerStyle === 'split' && (
+                  {(headerStyle === 'split' || (headerStyle !== 'centered' && headerStyle !== 'left')) && (
                     <div className="flex justify-between items-start mb-6">
                       <div className="flex items-center gap-4 max-w-[60%]">
                         {safeBranding.logoUrl && (
                           <img src={safeBranding.logoUrl} alt="Company Logo" crossOrigin="anonymous" className="w-20 h-20 object-contain shrink-0" />
                         )}
                         <div>
-                          {safeCd.companyName && (
-                            <div style={{ color: safeBranding.borderColors?.top || '#2D136F', fontSize: '20px', fontWeight: 700, lineHeight: 1.1, textTransform: 'uppercase' }}>
-                              {safeCd.companyName.split('\n').map((line, i) => <div key={i}>{line}</div>)}
-                            </div>
-                          )}
-                          <div className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{safeCd.companyAddress}</div>
+                          <div style={{ color: safeBranding.borderColors?.top || '#2D136F', fontSize: '20px', fontWeight: 700, lineHeight: 1.1, textTransform: 'uppercase' }}>
+                            {(safeCd.companyName || 'Studlyf Inc.').split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
+                          </div>
                         </div>
                       </div>
                       
                       <div className="text-right text-sm space-y-1 font-medium text-slate-500">
+                        <div className="whitespace-pre-wrap">{safeCd.companyAddress || 'Hyderabad, Telangana, India'}</div>
                         {safeCd.companyPhone && <div>{safeCd.companyPhone}</div>}
                         {safeCd.companyEmail && <div>{safeCd.companyEmail}</div>}
                         {safeCd.companyWebsite && <div>{safeCd.companyWebsite}</div>}

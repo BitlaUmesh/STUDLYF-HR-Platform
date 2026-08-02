@@ -23,7 +23,7 @@ export interface TemplateConfig {
   cornerAccents?: boolean;
 }
 
-interface CandidateDetails {
+export interface CandidateDetails {
   // Candidate Information
   candidateName: string;
   candidateEmail: string;
@@ -65,7 +65,7 @@ interface CandidateDetails {
   customNotes: string;
 }
 
-interface BrandingDetails {
+export interface BrandingDetails {
   brandColor: string;
   fontFamily: string;
   fontSize?: string;
@@ -76,7 +76,7 @@ interface BrandingDetails {
   sealUrl: string | null;
 }
 
-interface DocumentBuilderState {
+export interface DocumentBuilderState {
   documentType: 'offer' | 'joining';
   branding: BrandingDetails;
   candidateDetails: CandidateDetails;
