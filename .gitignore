@@ -71,6 +71,7 @@ frontend/.env.local
 
 backend/.env
 
+
 # backend node
 
 backend-node/.env
@@ -78,3 +79,7 @@ backend-node/.env.local
 backend-node/.env.production
 backend-node/.env.development
 backend-node/node_modules
+backend-node/.env.zip
+backend-node/.env.rar
+backend-node/.env.tar.gz
+
