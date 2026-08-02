@@ -1,4 +1,15 @@
-require('dotenv').config();
+// Load .env from Render Secret Files path first (/etc/secrets/.env),
+// then fall back to local .env for development environments.
+const fs = require('fs');
+const path = require('path');
+const dotenv = require('dotenv');
+
+const renderSecretPath = '/etc/secrets/.env';
+if (fs.existsSync(renderSecretPath)) {
+  dotenv.config({ path: renderSecretPath });
+} else {
+  dotenv.config();
+}
 const dns = require('dns');
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
