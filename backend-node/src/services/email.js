@@ -1,126 +1,84 @@
-const nodemailer = require('nodemailer');
-const dns = require('dns');
+const { Resend } = require('resend');
 
-if (dns.setDefaultResultOrder) {
-  dns.setDefaultResultOrder('ipv4first');
+/**
+ * Get a Resend client instance.
+ * Returns null if RESEND_API_KEY is not configured.
+ */
+function getResendClient() {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (!apiKey) return null;
+  return new Resend(apiKey);
 }
 
 /**
- * Create a fresh Nodemailer transporter for each send.
- * Avoids stale TCP socket issues on cloud hosts (Render, AWS, etc.)
- * where idle pooled connections are silently dropped.
+ * The verified FROM address to use.
+ * If you haven't verified a domain on Resend, use the default onboarding address.
+ * Once your domain is verified, set RESEND_FROM in env vars.
  */
-function createTransporter() {
-  const host = process.env.SMTP_HOST || 'smtp.gmail.com';
-  const port = parseInt(process.env.SMTP_PORT || '587');
-  const user = process.env.SMTP_USER;
-  const pass = process.env.SMTP_PASS;
-
-  if (!user || !pass) {
-    return null;
-  }
-
-  try {
-    const ipv4Lookup = (hostname, options, callback) => {
-      return dns.lookup(hostname, { family: 4 }, callback);
-    };
-
-    const transportConfig = {
-      host: host,
-      port: port,
-      secure: port === 465, // false for 587 (STARTTLS), true for 465 (Implicit TLS)
-      auth: { user, pass },
-      lookup: ipv4Lookup,
-      connectionTimeout: 10000,
-      greetingTimeout: 10000,
-      socketTimeout: 15000,
-      pool: false, // Disable pooling — fresh connection per send to avoid stale sockets
-      tls: {
-        rejectUnauthorized: true,
-      },
-    };
-
-    return nodemailer.createTransport(transportConfig);
-  } catch (err) {
-    console.error('[SMTP Transporter Creation Error]', err.message);
-    return null;
-  }
+function getFromAddress() {
+  return process.env.RESEND_FROM || process.env.SMTP_FROM || 'STUDLYF HR <onboarding@resend.dev>';
 }
 
 /**
- * Map raw SMTP error codes to user-friendly diagnostic messages.
+ * Core send function. All email functions route through here.
  */
-function getDiagnosticMessage(err) {
-  const code = err.code || '';
-  const msg = (err.message || '').toLowerCase();
-
-  if (code === 'ETIMEDOUT' || code === 'ESOCKET' || msg.includes('timeout')) {
-    return 'SMTP connection timed out. The mail server may be unreachable from this host. Check SMTP_HOST, SMTP_PORT, and firewall/egress rules.';
-  }
-  if (code === 'EAUTH' || msg.includes('invalid login') || msg.includes('authentication')) {
-    return 'SMTP authentication failed. Please verify SMTP_USER and SMTP_PASS (must be a Gmail App Password, not your account password).';
-  }
-  if (code === 'ENOTFOUND' || msg.includes('getaddrinfo')) {
-    return 'SMTP host not found. Check SMTP_HOST value and DNS/network settings.';
-  }
-  if (code === 'ECONNREFUSED') {
-    return 'SMTP connection refused. The mail server actively rejected the connection on this port.';
-  }
-  return err.message;
-}
-
 async function sendMailSafe(options) {
-  const transporter = createTransporter();
-  if (!transporter || typeof transporter.sendMail !== 'function') {
-    console.warn('[SMTP WARNING] Email credentials not configured on server.');
-    return { ok: false, error: 'SMTP credentials (SMTP_USER / SMTP_PASS) not configured on backend server' };
+  const resend = getResendClient();
+
+  if (!resend) {
+    console.warn('[RESEND WARNING] RESEND_API_KEY not configured on server.');
+    return { ok: false, error: 'Email service not configured. Please set RESEND_API_KEY on the server.' };
   }
 
-  // Use configured FROM address or fallback to authenticated SMTP_USER to pass SPF/DKIM
-  const defaultFrom = process.env.SMTP_FROM || (process.env.SMTP_USER ? `STUDLYF HR <${process.env.SMTP_USER}>` : 'STUDLYF HR <no-reply@studlyf.com>');
+  const fromAddress = options.from || getFromAddress();
 
-  const mailOptions = {
-    from: options.from || defaultFrom,
-    ...options,
+  const mailPayload = {
+    from: fromAddress,
+    to: [options.to],
+    subject: options.subject,
+    html: options.html,
+    reply_to: options.replyTo,
   };
 
-  // Generate plain text alternative for multipart MIME deliverability
-  if (options.html && !options.text) {
-    mailOptions.text = options.html
-      .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
-      .replace(/<[^>]+>/g, ' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+  // Attach plain text alternative if provided
+  if (options.text) {
+    mailPayload.text = options.text;
+  }
+
+  // Attach file attachments if provided
+  if (options.attachments && options.attachments.length > 0) {
+    mailPayload.attachments = options.attachments.map((a) => ({
+      filename: a.filename,
+      content: a.content, // Buffer or base64 string
+    }));
   }
 
   try {
-    const info = await transporter.sendMail(mailOptions);
-    console.log('[SMTP SUCCESS] Email sent to:', options.to, 'MessageId:', info?.messageId);
-    return { ok: true, messageId: info?.messageId };
+    const { data, error } = await resend.emails.send(mailPayload);
+
+    if (error) {
+      console.error('[RESEND ERROR] Failed to send email:', error.message, '| To:', options.to);
+      return { ok: false, error: error.message };
+    }
+
+    console.log('[RESEND SUCCESS] Email sent to:', options.to, 'ID:', data?.id);
+    return { ok: true, messageId: data?.id };
   } catch (err) {
-    const diagnostic = getDiagnosticMessage(err);
-    console.error('[SMTP ERROR] Failed to send email via SMTP:', diagnostic, '| Raw:', err.code, err.message);
-    return { ok: false, error: diagnostic };
+    console.error('[RESEND EXCEPTION]', err.message);
+    return { ok: false, error: err.message };
   }
 }
 
 /**
- * Verify SMTP connection and credentials. Useful for health checks and diagnostics.
+ * Verify Resend API key is configured. Useful for health checks.
  */
 async function verifySmtpConnection() {
-  const transporter = createTransporter();
-  if (!transporter) {
-    return { ok: false, error: 'SMTP credentials not configured' };
+  const resend = getResendClient();
+  if (!resend) {
+    return { ok: false, error: 'RESEND_API_KEY not configured' };
   }
-  try {
-    await transporter.verify();
-    console.log('[SMTP VERIFY] Connection and auth successful');
-    return { ok: true };
-  } catch (err) {
-    const diagnostic = getDiagnosticMessage(err);
-    console.error('[SMTP VERIFY ERROR]', diagnostic);
-    return { ok: false, error: diagnostic };
-  }
+  // Resend doesn't have a verify endpoint, but we can check the key is present
+  return { ok: true, message: 'Resend API key is configured' };
 }
 
 /**
@@ -129,7 +87,6 @@ async function verifySmtpConnection() {
 async function sendMeetingInvite({ to, hrName, companyName, title, scheduledAt, calendlyLink, replyTo }) {
   const formattedTime = scheduledAt ? new Date(scheduledAt).toLocaleString() : 'Scheduled by HR';
   return await sendMailSafe({
-    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `Interview Scheduled with ${companyName} — ${title}`,
     replyTo,
@@ -155,7 +112,6 @@ async function sendMeetingInvite({ to, hrName, companyName, title, scheduledAt, 
  */
 async function sendMeetingCancellation({ to, hrName, companyName, title, replyTo }) {
   return await sendMailSafe({
-    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `Meeting Cancelled — ${title}`,
     replyTo,
@@ -176,7 +132,6 @@ async function sendMeetingCancellation({ to, hrName, companyName, title, replyTo
  */
 async function sendMessageNotification({ to, hrName, companyName, preview, replyTo }) {
   return await sendMailSafe({
-    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `New message from ${companyName}`,
     replyTo,
@@ -206,7 +161,6 @@ async function sendApplicationStatusUpdate({ to, companyName, status, replyTo })
   const info = statusMap[status] || { label: 'Application Update', color: '#2D136F' };
 
   return await sendMailSafe({
-    from: process.env.SMTP_FROM || 'no-reply@studlyf.com',
     to,
     subject: `${info.label} — ${companyName}`,
     replyTo,
@@ -227,12 +181,10 @@ async function sendApplicationStatusUpdate({ to, companyName, status, replyTo })
  * @param {string} opts.subject - Email subject
  * @param {string} opts.htmlContent - HTML body of the email
  * @param {{ filename: string; content: string; contentType: string }|undefined} opts.attachment - Optional base64 file attachment
+ * @param {string|undefined} opts.replyTo - Reply-To address (HR email)
  */
 async function sendDocumentEmail({ to, subject, htmlContent, attachment, replyTo }) {
-  const fromAddress = process.env.SMTP_FROM || (process.env.SMTP_USER ? `STUDLYF HR <${process.env.SMTP_USER}>` : 'STUDLYF HR <no-reply@studlyf.com>');
-
   const mailOptions = {
-    from: fromAddress,
     to,
     subject,
     html: htmlContent,
@@ -244,7 +196,6 @@ async function sendDocumentEmail({ to, subject, htmlContent, attachment, replyTo
       {
         filename: attachment.filename,
         content: Buffer.from(attachment.content, 'base64'),
-        contentType: attachment.contentType || 'application/octet-stream',
       },
     ];
   }
