@@ -17,7 +17,6 @@ if (dns.setDefaultResultOrder) {
 const express = require('express');
 const cors = require('cors');
 const cookieParser = require('cookie-parser');
-const path = require('path');
 
 const authRoutes = require('./routes/auth');
 const documentsRoutes = require('./routes/documents');
