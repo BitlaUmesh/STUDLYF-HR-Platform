@@ -12,7 +12,7 @@ export default function LivePreview() {
   // Parse variables into the content string
   const getRenderedContent = () => {
     let htmlContent = (typeof content === 'string' && content.trim() !== '') ? content : DEFAULT_DOCUMENT_CONTENT;
-    const details = candidateDetails || {};
+    const details = candidateDetails;
     
     const variables: Record<string, string> = {
       '{{candidate_name}}': details.candidateName || '[Candidate Name]',
@@ -44,8 +44,8 @@ export default function LivePreview() {
       setIsPaginating(true);
       const renderedHtml = getRenderedContent();
       
-      const safeBr = branding || {};
-      const safeCd = candidateDetails || {};
+      const safeBr = branding;
+      const safeCd = candidateDetails;
       const hasLargeHeader = !!safeBr.letterheadUrl || !!safeBr.logoUrl || !!safeCd.companyName;
       const firstPageHeight = hasLargeHeader ? 600 : 800;
       const standardHeight = 900;
@@ -69,22 +69,8 @@ export default function LivePreview() {
   }, [content, candidateDetails, branding, templateConfig]);
 
   // Derived styles based on templateConfig
-  const safeBranding = branding || {
-    logoUrl: null,
-    letterheadUrl: null,
-    signatureUrl: null,
-    sealUrl: null,
-    primaryColor: '#2D136F',
-    secondaryColor: '#5D22D8',
-    fontFamily: 'Times New Roman',
-    borderColors: {
-      top: '#2D136F',
-      bottom: '#2D136F',
-      divider: '#2D136F'
-    }
-  };
-  
-  const safeCd = candidateDetails || {};
+  const safeBranding = branding;
+  const safeCd = candidateDetails;
   
   const showBorders = templateConfig ? templateConfig.borders.show : true;
   const borderTopColor = showBorders ? (safeBranding.borderColors?.top || '#2D136F') : 'transparent';
@@ -153,7 +139,7 @@ export default function LivePreview() {
                         <div>
                           {safeCd.companyName && (
                             <div style={{ color: safeBranding.borderColors?.top || '#2D136F', fontSize: '20px', fontWeight: 700, lineHeight: 1.1, textTransform: 'uppercase' }}>
-                              {safeCd.companyName.split('\n').map((line: string, i: number) => <div key={i}>{line}</div>)}
+                              {safeCd.companyName.split('\n').map((line, i) => <div key={i}>{line}</div>)}
                             </div>
                           )}
                           <div className="text-sm text-slate-500 mt-1 whitespace-pre-wrap">{safeCd.companyAddress}</div>

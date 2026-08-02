@@ -166,6 +166,7 @@ const handleSendDocument = async (req, res, next) => {
 
     const doc = await prisma.document.findFirst({
       where: { id: req.params.id, userId: req.hrId },
+      include: { user: true },
     });
     if (!doc) {
       return res.status(404).json({ error: 'Document not found' });
@@ -176,16 +177,19 @@ const handleSendDocument = async (req, res, next) => {
       subject: parsed.data.subject,
       htmlContent: parsed.data.html_content,
       attachment: parsed.data.attachment,
+      replyTo: doc.user ? `"${doc.user.fullName}" <${doc.user.email}>` : undefined,
     });
 
     if (!result || result.ok === false) {
-      return res.status(500).json({ error: result?.error || 'Failed to send email' });
+      const errorMsg = result?.error || 'Failed to send email. Please check server SMTP configuration.';
+      console.error('[SEND-EMAIL FAILED]', errorMsg, '| To:', parsed.data.to_email);
+      return res.status(500).json({ error: errorMsg });
     }
 
     return res.status(200).json({ message: 'Email sent successfully!' });
   } catch (err) {
-    console.error('[SEND-EMAIL ERROR]', err?.message || err, err?.stack);
-    next(err);
+    console.error('[SEND-EMAIL ERROR]', err?.message || err, err?.code, err?.stack);
+    return res.status(500).json({ error: err?.message || 'Unexpected error while sending email.' });
   }
 };
 
