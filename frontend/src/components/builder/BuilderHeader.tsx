@@ -794,7 +794,7 @@ export default function BuilderHeader() {
                         <button
                           type="button"
                           onClick={() => {
-                            const backendUrl = (import.meta.env.VITE_API_URL || 'https://studlyf-hr-platform.onrender.com/api').replace(/\/$/, '');
+                            const backendUrl = (import.meta.env.VITE_API_URL || 'https://yellowgreen-zebra-119034.hostingersite.com/api').replace(/\/$/, '');
                             window.location.href = `${backendUrl}/auth/google`;
                           }}
                           className="flex items-center justify-center gap-2 px-3.5 py-2 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-sm cursor-pointer"

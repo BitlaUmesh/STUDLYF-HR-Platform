@@ -664,7 +664,7 @@ function getGoogleRedirectUri(req) {
   if (host.includes('localhost') || host.includes('127.0.0.1')) {
     return `http://${host}/api/auth/google/callback`;
   }
-  return 'https://studlyf-hr-platform.onrender.com/api/auth/google/callback';
+  return 'https://yellowgreen-zebra-119034.hostingersite.com/api/auth/google/callback';
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
