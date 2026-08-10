@@ -8,7 +8,7 @@ const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || wi
 // This keeps cookies same-origin.
 export const API_BASE_URL = isLocalhost
   ? 'http://localhost:3001/api'
-  : (import.meta.env.VITE_API_BASE_URL || '/api');
+  : (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || '/api');
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
