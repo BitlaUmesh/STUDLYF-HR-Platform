@@ -132,10 +132,21 @@ app.use((err, req, res, next) => {
   });
 });
 
+// ── Process Level Error Handlers ─────────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught Exception:', err.message, err.stack);
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+});
+
 // ── Start Server ──────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`🚀 STUDLYF HR Backend running on port ${PORT}`);
+const rawPort = process.env.PORT || 3000;
+const isSocket = typeof rawPort === 'string' && isNaN(Number(rawPort));
+
+const listenCallback = () => {
+  console.log(`🚀 STUDLYF HR Backend running on ${isSocket ? rawPort : `port ${rawPort}`}`);
   console.log(`📋 Environment: ${process.env.ENVIRONMENT || 'development'}`);
 
   if (!process.env.DATABASE_URL) {
@@ -149,6 +160,10 @@ app.listen(PORT, '0.0.0.0', () => {
   } else {
     console.log('✅ JWT_SECRET is configured.');
   }
-});
+};
+
+const server = isSocket
+  ? app.listen(rawPort, listenCallback)
+  : app.listen(Number(rawPort), '0.0.0.0', listenCallback);
 
 module.exports = app;
