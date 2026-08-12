@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/(.*)",
-      "destination": "https://yellowgreen-zebra-119034.hostingersite.com/api/$1"
+      "destination": "https://olivedrab-chimpanzee-507172.hostingersite.com/api/$1"
     },
     {
       "source": "/((?!api/).*)",

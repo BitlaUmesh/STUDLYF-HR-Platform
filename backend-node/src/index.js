@@ -1,15 +1,22 @@
-// Load .env from Render Secret Files path first (/etc/secrets/.env),
-// then fall back to local .env for development environments.
+// Load environment variables from multiple possible locations (Hostinger, Render, Local)
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
 const renderSecretPath = '/etc/secrets/.env';
+const localBackendEnvPath = path.resolve(__dirname, '../.env');
+const cwdEnvPath = path.resolve(process.cwd(), '.env');
+
 if (fs.existsSync(renderSecretPath)) {
   dotenv.config({ path: renderSecretPath });
+} else if (fs.existsSync(localBackendEnvPath)) {
+  dotenv.config({ path: localBackendEnvPath });
+} else if (fs.existsSync(cwdEnvPath)) {
+  dotenv.config({ path: cwdEnvPath });
 } else {
   dotenv.config();
 }
+
 const dns = require('dns');
 if (dns.setDefaultResultOrder) {
   dns.setDefaultResultOrder('ipv4first');
@@ -34,6 +41,7 @@ const allowedOrigins = new Set(
   [
     'http://localhost:3000',
     'https://studlyf-hr-platform.vercel.app',
+    'https://olivedrab-chimpanzee-507172.hostingersite.com',
     frontendUrl,
   ].filter(Boolean)
 );
@@ -126,9 +134,21 @@ app.use((err, req, res, next) => {
 
 // ── Start Server ──────────────────────────────────────────────────────────────
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`🚀 STUDLYF HR Backend running on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 STUDLYF HR Backend running on port ${PORT}`);
   console.log(`📋 Environment: ${process.env.ENVIRONMENT || 'development'}`);
+
+  if (!process.env.DATABASE_URL) {
+    console.warn('⚠️ WARNING: DATABASE_URL is not set in environment variables! Database operations will fail.');
+  } else {
+    console.log('✅ DATABASE_URL is configured.');
+  }
+
+  if (!process.env.JWT_SECRET) {
+    console.warn('⚠️ WARNING: JWT_SECRET is not set in environment variables! Auth operations will fail.');
+  } else {
+    console.log('✅ JWT_SECRET is configured.');
+  }
 });
 
 module.exports = app;

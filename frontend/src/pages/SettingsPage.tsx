@@ -653,7 +653,7 @@ export function SettingsPage() {
               <button
                 type="button"
                 onClick={() => {
-                  const backendUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || 'https://yellowgreen-zebra-119034.hostingersite.com/api').replace(/\/$/, '');
+                  const backendUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || 'https://olivedrab-chimpanzee-507172.hostingersite.com/api').replace(/\/$/, '');
                   window.location.href = `${backendUrl}/auth/google`;
                 }}
                 className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-50 transition-all shadow-2xs shrink-0 cursor-pointer"
