@@ -2,7 +2,12 @@
   "name": "studlyf-hr-platform",
   "version": "1.0.0",
   "private": true,
+  "main": "src/index.js",
   "scripts": {
-    "build": "npm --prefix frontend run build"
+    "postinstall": "npm --prefix backend-node install",
+    "build": "npm --prefix backend-node run build",
+    "start": "node src/index.js",
+    "db:deploy": "npm --prefix backend-node run db:deploy",
+    "hostinger:deploy": "npm --prefix backend-node run hostinger:deploy"
   }
 }
