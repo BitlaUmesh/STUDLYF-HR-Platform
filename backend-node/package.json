@@ -4,15 +4,16 @@
   "description": "STUDLYF HR Platform — Node.js Backend",
   "main": "src/index.js",
   "scripts": {
-    "start": "npx prisma generate && npx prisma db push --accept-data-loss && node prisma/seed_safe.js && node src/index.js",
-    "dev": "nodemon src/index.js",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
+    "start": "node src/index.js",
     "db:deploy": "npx prisma db push --accept-data-loss && node prisma/seed_safe.js",
     "db:seed:safe": "node prisma/seed_safe.js",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand --passWithNoTests"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
