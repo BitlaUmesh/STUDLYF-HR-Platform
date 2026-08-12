@@ -9,5 +9,8 @@
     "start": "node src/index.js",
     "db:deploy": "npm --prefix backend-node run db:deploy",
     "hostinger:deploy": "npm --prefix backend-node run hostinger:deploy"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }
