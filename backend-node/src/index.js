@@ -1,21 +1,20 @@
-// Load environment variables from multiple possible locations (Hostinger, Render, Local)
+// Load environment variables for Hostinger and local development
 const fs = require('fs');
 const path = require('path');
 const dotenv = require('dotenv');
 
-const renderSecretPath = '/etc/secrets/.env';
-const localBackendEnvPath = path.resolve(__dirname, '../.env');
-const cwdEnvPath = path.resolve(process.cwd(), '.env');
+const envPaths = [
+  path.resolve(__dirname, '../.env'),
+  path.resolve(__dirname, '../../.env'),
+  path.resolve(process.cwd(), '.env'),
+];
 
-if (fs.existsSync(renderSecretPath)) {
-  dotenv.config({ path: renderSecretPath });
-} else if (fs.existsSync(localBackendEnvPath)) {
-  dotenv.config({ path: localBackendEnvPath });
-} else if (fs.existsSync(cwdEnvPath)) {
-  dotenv.config({ path: cwdEnvPath });
-} else {
-  dotenv.config();
+for (const envPath of envPaths) {
+  if (fs.existsSync(envPath)) {
+    dotenv.config({ path: envPath });
+  }
 }
+dotenv.config();
 
 const dns = require('dns');
 if (dns.setDefaultResultOrder) {
@@ -145,14 +144,22 @@ process.on('unhandledRejection', (reason, promise) => {
 const rawPort = process.env.PORT || 3000;
 const isSocket = typeof rawPort === 'string' && isNaN(Number(rawPort));
 
-const listenCallback = () => {
+const listenCallback = async () => {
   console.log(`🚀 STUDLYF HR Backend running on ${isSocket ? rawPort : `port ${rawPort}`}`);
-  console.log(`📋 Environment: ${process.env.ENVIRONMENT || 'development'}`);
+  console.log(`📋 Hostinger Environment: ${process.env.ENVIRONMENT || 'production'}`);
 
-  if (!process.env.DATABASE_URL) {
+  if (!process.env.DATABASE_URL && !process.env.DIRECT_URL) {
     console.warn('⚠️ WARNING: DATABASE_URL is not set in environment variables! Database operations will fail.');
+    console.warn('👉 Please set DATABASE_URL in Hostinger App Settings -> Environment Variables or in your .env file.');
   } else {
     console.log('✅ DATABASE_URL is configured.');
+    try {
+      const prisma = require('./db');
+      await prisma.$connect();
+      console.log('✅ Hostinger PostgreSQL database connection established successfully.');
+    } catch (dbErr) {
+      console.error('❌ Failed to connect to Hostinger PostgreSQL database:', dbErr.message);
+    }
   }
 
   if (!process.env.JWT_SECRET) {

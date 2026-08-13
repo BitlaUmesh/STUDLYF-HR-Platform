@@ -16,6 +16,9 @@
     "prisma:studio": "prisma studio",
     "test": "jest --runInBand --passWithNoTests"
   },
+  "overrides": {
+    "glob": "^13.0.0"
+  },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "axios": "^1.7.9",

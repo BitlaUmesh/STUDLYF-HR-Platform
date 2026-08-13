@@ -796,7 +796,7 @@ router.get('/google/callback', async (req, res, next) => {
     const refreshToken = createRefreshToken(user.id);
 
     // Set cookies (will work if same domain; also passing token in URL as fallback
-    // since the frontend is on Vercel and the backend is on Render — cross-site)
+    // since the frontend is on Vercel and the backend is on Hostinger — cross-site)
     res.cookie('access_token', accessToken, cookieOptions(24 * 60 * 60 * 1000));
     res.cookie('refresh_token', refreshToken, cookieOptions(7 * 24 * 60 * 60 * 1000));
 

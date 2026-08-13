@@ -6,9 +6,9 @@ function createPrismaClient() {
   const dbUrl = process.env.DATABASE_URL || process.env.DIRECT_URL;
   if (!dbUrl) {
     console.error('\n' + '='.repeat(80));
-    console.error('❌ CRITICAL DEPLOYMENT WARNING: Missing DATABASE_URL environment variable!');
+    console.error('❌ CRITICAL HOSTINGER DEPLOYMENT WARNING: Missing DATABASE_URL environment variable!');
     console.error('   The backend requires a PostgreSQL database URL to perform database operations.');
-    console.error('   Please add DATABASE_URL in your Hostinger App Settings -> Environment Variables.');
+    console.error('   Please add DATABASE_URL in your Hostinger App Settings -> Environment Variables or .env file.');
     console.error('='.repeat(80) + '\n');
   }
 
