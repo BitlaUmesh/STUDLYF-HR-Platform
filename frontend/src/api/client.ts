@@ -3,12 +3,32 @@ import axios from 'axios';
 const isBrowser = typeof window !== 'undefined';
 const isLocalhost = isBrowser && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
 
-// On deployed environments (Vercel or custom domain), default to relative '/api'
-// so requests go through the Vercel rewrite proxy defined in vercel.json.
-// This keeps cookies same-origin.
-export const API_BASE_URL = isLocalhost
-  ? 'http://localhost:3001/api'
-  : (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || import.meta.env.VITE_URL || '/api');
+// Hostinger backend default URL
+const DEFAULT_PROD_API_URL = 'https://olivedrab-chimpanzee-507172.hostingersite.com/api';
+
+function resolveApiBaseUrl(): string {
+  if (isLocalhost) {
+    return 'http://localhost:3001/api';
+  }
+
+  const envUrl = (
+    import.meta.env.VITE_API_BASE_URL ||
+    import.meta.env.VITE_API_URL ||
+    import.meta.env.VITE_URL ||
+    DEFAULT_PROD_API_URL
+  ).trim();
+
+  // If envUrl is relative (e.g. '/api'), return as-is
+  if (envUrl.startsWith('/')) {
+    return envUrl;
+  }
+
+  // Ensure full http/https URLs end with /api
+  const cleaned = envUrl.replace(/\/+$/, '');
+  return cleaned.endsWith('/api') ? cleaned : `${cleaned}/api`;
+}
+
+export const API_BASE_URL = resolveApiBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
