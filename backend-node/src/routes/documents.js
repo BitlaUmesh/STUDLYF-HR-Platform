@@ -180,8 +180,19 @@ const handleSendDocument = async (req, res, next) => {
       attachment: parsed.data.attachment,
     });
 
-    if (!result || result.ok === false) {
-      const errorMsg = result?.error || 'Failed to send email. Please configure email settings.';
+    const succeeded = !!result && result.ok !== false;
+
+    // Record the delivery attempt. Only status is stored — never the reply thread.
+    await prisma.emailLog.create({
+      data: {
+        documentId: doc.id,
+        recipientEmail: parsed.data.to_email,
+        status: succeeded ? 'sent' : 'failed',
+      },
+    }).catch((logErr) => console.error('[EMAIL LOG ERROR]', logErr.message));
+
+    if (!succeeded) {
+      const errorMsg = result?.error || 'Failed to send email. Please try again.';
       console.error('[SEND-EMAIL FAILED]', errorMsg, '| To:', parsed.data.to_email);
       const statusCode = result?.code === 'EMAIL_NOT_CONFIGURED' ? 400 : 500;
       return res.status(statusCode).json({ error: errorMsg, code: result?.code });

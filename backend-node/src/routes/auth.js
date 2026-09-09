@@ -405,7 +405,9 @@ router.post('/change-password', authenticate, async (req, res, next) => {
 // POST /api/auth/forgot-password
 // ─────────────────────────────────────────────────────────────────────────────
 // ── OTP Mailer Helper ────────────────────────────────────────────────────────
-const { sendDocumentEmail } = require('../services/email');
+// OTPs are platform mail, not HR mail — sent from the neutral STUDLYF sender
+// with no Reply-To.
+const { sendSystemMail } = require('../services/email');
 
 async function sendOtpEmail(email, otp, title, subtitle) {
   const htmlContent = `
@@ -440,12 +442,16 @@ async function sendOtpEmail(email, otp, title, subtitle) {
     </div>
   `;
 
-  await sendDocumentEmail({
+  const result = await sendSystemMail({
     to: email,
     subject: `[STUDLYF HR] ${otp} is your verification code`,
     htmlContent,
   });
-  
+
+  if (!result?.ok) {
+    console.error(`[OTP EMAIL FAILED] ${email} — ${result?.error || 'unknown error'}`);
+  }
+
   // Dev Fallback console print
   console.log(`\n==========================================`);
   console.log(`[STUDLYF 6-DIGIT OTP] Email: ${email} | Code: ${otp}`);
@@ -682,11 +688,13 @@ router.get('/google', (req, res) => {
 
   const redirectUri = getGoogleRedirectUri(req);
 
+  // Identity scopes only. The gmail.send scope was removed — STUDLYF no longer
+  // sends mail through the user's Gmail account (all mail goes via Resend).
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
     response_type: 'code',
-    scope: 'openid email profile https://www.googleapis.com/auth/gmail.send',
+    scope: 'openid email profile',
     access_type: 'offline',
     prompt: 'consent select_account',
   });

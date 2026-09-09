@@ -1,11 +1,52 @@
-const axios = require('axios');
-const nodemailer = require('nodemailer');
 const { Resend } = require('resend');
-const prisma = require('../db');
-const { decrypt } = require('../utils/encryption');
 
 /**
- * Get a global Resend client instance (used as system fallback for platform OTPs).
+ * ─────────────────────────────────────────────────────────────────────────────
+ * EMAIL DELIVERY — RESEND ONLY
+ * ─────────────────────────────────────────────────────────────────────────────
+ * All outbound mail (documents, meeting invites, notifications, OTPs) is sent
+ * through Resend using STUDLYF's own verified sender address.
+ *
+ * For HR-initiated mail the envelope is shaped so that:
+ *   From     : "{HR Name} via STUDLYF" <sender@studlyf-domain>
+ *   Reply-To : the HR's real email address
+ *
+ * This means the candidate sees who the mail is from, but any reply they write
+ * goes straight to the HR's own inbox. STUDLYF does not receive, store, or
+ * process replies — there is no inbound mail handling in this system — so the
+ * conversation after the initial send is entirely between HR and candidate.
+ */
+
+/** Address STUDLYF sends from. Swap to a verified domain address in .env. */
+function getSenderAddress() {
+  return process.env.RESEND_SENDER_ADDRESS || 'onboarding@resend.dev';
+}
+
+/** From header used for platform/system mail (OTPs) with no HR attribution. */
+function getSystemFromAddress() {
+  return process.env.RESEND_FROM || `STUDLYF HR <${getSenderAddress()}>`;
+}
+
+/**
+ * Strip characters that would corrupt an RFC 5322 display name.
+ */
+function sanitizeDisplayName(name) {
+  return String(name || '')
+    .replace(/[\r\n"\\]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Build the "{HR Name} via STUDLYF" <sender> From header.
+ */
+function buildHrFromAddress(hrName) {
+  const safeName = sanitizeDisplayName(hrName) || 'HR';
+  return `"${safeName} via STUDLYF" <${getSenderAddress()}>`;
+}
+
+/**
+ * Get a Resend client, or null when no API key is configured.
  */
 function getResendClient() {
   const apiKey = process.env.RESEND_API_KEY;
@@ -14,224 +55,134 @@ function getResendClient() {
 }
 
 /**
- * Get a fresh Google OAuth access token for a user, auto-refreshing if expired.
+ * Normalize attachments into the shape Resend expects.
+ *
+ * Resend's API wants `content` as a Base64 string. Passing a Buffer would be
+ * JSON-serialized as a byte array, which roughly triples the request size and
+ * counts against the 40MB email limit — so Buffers are encoded here instead.
  */
-async function getFreshGoogleToken(user) {
-  if (!user || (!user.googleAccessToken && !user.googleRefreshToken)) {
-    return null;
-  }
+function normalizeAttachments(attachments) {
+  if (!Array.isArray(attachments) || attachments.length === 0) return undefined;
 
-  const isExpired = !user.googleTokenExpiry || new Date(user.googleTokenExpiry).getTime() <= Date.now() + 60000;
-
-  if (!isExpired && user.googleAccessToken) {
-    return user.googleAccessToken;
-  }
-
-  if (!user.googleRefreshToken) {
-    return user.googleAccessToken || null;
-  }
-
-  try {
-    const response = await axios.post('https://oauth2.googleapis.com/token', {
-      client_id: process.env.GOOGLE_CLIENT_ID,
-      client_secret: process.env.GOOGLE_CLIENT_SECRET,
-      refresh_token: user.googleRefreshToken,
-      grant_type: 'refresh_token',
-    });
-
-    const newAccessToken = response.data.access_token;
-    const expiresIn = response.data.expires_in || 3600;
-    const newExpiry = new Date(Date.now() + expiresIn * 1000);
-
-    // Save refreshed token to DB
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        googleAccessToken: newAccessToken,
-        googleTokenExpiry: newExpiry,
-      },
-    }).catch(console.error);
-
-    return newAccessToken;
-  } catch (err) {
-    console.error('[Gmail Token Refresh Error]', err?.response?.data || err.message);
-    return user.googleAccessToken || null;
-  }
+  return attachments
+    .filter((att) => att && att.filename && att.content)
+    .map((att) => ({
+      filename: att.filename,
+      content: Buffer.isBuffer(att.content) ? att.content.toString('base64') : att.content,
+      ...(att.contentType ? { contentType: att.contentType } : {}),
+    }));
 }
 
 /**
- * Construct an RFC 2822 MIME raw message encoded as Base64URL for Gmail API.
+ * Low-level Resend dispatch shared by all senders.
  */
-function buildMimeMessage({ from, to, subject, html, attachments }) {
-  const boundary = `__STUDLYF_HR_BOUNDARY_${Date.now()}__`;
-  const lines = [
-    `From: ${from}`,
-    `To: ${to}`,
-    `Subject: =?utf-8?B?${Buffer.from(subject).toString('base64')}?=`,
-    `MIME-Version: 1.0`,
-  ];
+async function dispatch({ from, to, replyTo, subject, html, attachments, logLabel }) {
+  const resend = getResendClient();
 
-  if (attachments && attachments.length > 0) {
-    lines.push(`Content-Type: multipart/mixed; boundary="${boundary}"`, '');
-    lines.push(`--${boundary}`);
-    lines.push(`Content-Type: text/html; charset=UTF-8`, `Content-Transfer-Encoding: base64`, '');
-    lines.push(Buffer.from(html).toString('base64'), '');
-
-    for (const att of attachments) {
-      lines.push(`--${boundary}`);
-      lines.push(`Content-Type: ${att.contentType || 'application/octet-stream'}; name="${att.filename}"`);
-      lines.push(`Content-Disposition: attachment; filename="${att.filename}"`);
-      lines.push(`Content-Transfer-Encoding: base64`, '');
-      const contentBase64 = typeof att.content === 'string' ? att.content : Buffer.from(att.content).toString('base64');
-      lines.push(contentBase64, '');
-    }
-    lines.push(`--${boundary}--`);
-  } else {
-    lines.push(`Content-Type: text/html; charset=UTF-8`, `Content-Transfer-Encoding: base64`, '');
-    lines.push(Buffer.from(html).toString('base64'));
-  }
-
-  const mimeString = lines.join('\r\n');
-  return Buffer.from(mimeString)
-    .toString('base64')
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=+$/, '');
-}
-
-/**
- * Primary send mail function evaluated on per-user basis.
- * Priority order:
- * 1. Google OAuth / Gmail API (Sends directly out of HR's inbox)
- * 2. User's Encrypted Custom SMTP (Hostinger, MS 365, etc.)
- * 3. Returns explicit EMAIL_NOT_CONFIGURED error if neither is available.
- */
-async function sendMailForUser(user, options) {
-  if (!user) {
+  if (!resend) {
+    console.error('[EMAIL] RESEND_API_KEY is not set — cannot send email.');
     return {
       ok: false,
       code: 'EMAIL_NOT_CONFIGURED',
-      error: 'User account required to verify email credentials.',
+      error: 'Email delivery is not configured on the server. Please contact your administrator.',
     };
   }
 
-  const hrName = user.fullName || 'HR';
-  const hrEmail = user.email;
-
-  // ── 1. Google OAuth / Gmail API ─────────────────────────────────────────────
-  const googleToken = await getFreshGoogleToken(user);
-  if (googleToken) {
-    try {
-      const fromString = `"${hrName}" <${hrEmail}>`;
-      const rawMessage = buildMimeMessage({
-        from: fromString,
-        to: options.to,
-        subject: options.subject,
-        html: options.htmlContent || options.html,
-        attachments: options.attachments,
-      });
-
-      const response = await axios.post(
-        'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
-        { raw: rawMessage },
-        {
-          headers: {
-            Authorization: `Bearer ${googleToken}`,
-            'Content-Type': 'application/json',
-          },
-        }
-      );
-
-      console.log(`[GMAIL API SUCCESS] Sent from ${hrEmail} to ${options.to} | MessageId: ${response.data.id}`);
-      return { ok: true, messageId: response.data.id, provider: 'gmail_api' };
-    } catch (gmailErr) {
-      const apiErr = gmailErr?.response?.data?.error?.message || gmailErr.message;
-      console.error('[GMAIL API ERROR]', apiErr);
-      // If Gmail API failed due to ungranted scope or invalid token, continue to SMTP check below
-    }
+  if (!to) {
+    return { ok: false, error: 'A recipient email address is required.' };
   }
 
-  // ── 2. User's Encrypted Custom SMTP ─────────────────────────────────────────
-  if (user.smtpHost && user.smtpUser && user.smtpPassEncrypted) {
-    try {
-      const decryptedPassword = decrypt(user.smtpPassEncrypted);
-      if (decryptedPassword) {
-        const port = user.smtpPort || 587;
-        const transporter = nodemailer.createTransport({
-          host: user.smtpHost,
-          port: port,
-          secure: port === 465,
-          auth: {
-            user: user.smtpUser,
-            pass: decryptedPassword,
-          },
-          tls: { rejectUnauthorized: false },
-        });
-
-        const fromAddr = user.smtpFrom || `"${hrName}" <${user.smtpUser}>`;
-        const mailOptions = {
-          from: fromAddr,
-          to: options.to,
-          subject: options.subject,
-          html: options.htmlContent || options.html,
-          replyTo: hrEmail,
-          attachments: options.attachments,
-        };
-
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`[CUSTOM SMTP SUCCESS] Sent from ${user.smtpUser} to ${options.to} | MessageId: ${info.messageId}`);
-        return { ok: true, messageId: info.messageId, provider: 'custom_smtp' };
-      }
-    } catch (smtpErr) {
-      console.error('[CUSTOM SMTP ERROR]', smtpErr.message);
-      return { ok: false, error: `Custom SMTP error: ${smtpErr.message}` };
-    }
-  }
-
-  // ── 3. Explicit UNCONFIGURED handling (No generic automatic fallback) ──────
-  return {
-    ok: false,
-    code: 'EMAIL_NOT_CONFIGURED',
-    error: 'Your account is not connected to Google Workspace/Gmail, and no custom SMTP settings were found. Please connect your Google account or configure your custom SMTP credentials in Profile Settings.',
-  };
-}
-
-/**
- * System OTP sender (used for password reset / signup OTPs). Uses Resend if present.
- */
-async function sendSystemMail(options) {
-  const resend = getResendClient();
-  if (!resend) {
-    console.warn('[SYSTEM EMAIL] Resend not configured. Printing to console:');
-    console.log(`[SYSTEM EMAIL] To: ${options.to} | Subject: ${options.subject}`);
-    return { ok: true, messageId: 'dev_console' };
+  if (!html) {
+    return { ok: false, error: 'Email content is required.' };
   }
 
   try {
-    const fromAddress = process.env.RESEND_FROM || 'STUDLYF HR <onboarding@resend.dev>';
-    const { data, error } = await resend.emails.send({
-      from: fromAddress,
-      to: [options.to],
-      subject: options.subject,
-      html: options.html,
-    });
+    const payload = {
+      from,
+      to: Array.isArray(to) ? to : [to],
+      subject: subject || '(no subject)',
+      html,
+    };
 
-    if (error) return { ok: false, error: error.message };
-    return { ok: true, messageId: data?.id };
+    if (replyTo) payload.replyTo = replyTo;
+
+    const normalizedAttachments = normalizeAttachments(attachments);
+    if (normalizedAttachments && normalizedAttachments.length > 0) {
+      payload.attachments = normalizedAttachments;
+    }
+
+    const { data, error } = await resend.emails.send(payload);
+
+    if (error) {
+      console.error(`[${logLabel} FAILED]`, error.message || error);
+      return { ok: false, error: error.message || 'Resend rejected the email.' };
+    }
+
+    console.log(`[${logLabel}] to=${to} replyTo=${replyTo || 'none'} id=${data?.id}`);
+    return { ok: true, messageId: data?.id, provider: 'resend' };
   } catch (err) {
-    return { ok: false, error: err.message };
+    console.error(`[${logLabel} ERROR]`, err?.message || err);
+    return { ok: false, error: err?.message || 'Unexpected error while sending email.' };
   }
 }
 
 /**
- * Document email sender used by documents.js route.
+ * Send mail on behalf of an HR user.
+ *
+ * Sends via STUDLYF's Resend sender, attributed to the HR by display name,
+ * with Reply-To pointed at the HR's real inbox so replies bypass STUDLYF.
+ *
+ * When no user is supplied (e.g. signup OTPs, where no HR exists yet) this
+ * falls back to the neutral system sender.
+ */
+async function sendMailForUser(user, options = {}) {
+  const hrEmail = user?.email;
+
+  if (!hrEmail) {
+    return await sendSystemMail({
+      to: options.to,
+      subject: options.subject,
+      html: options.htmlContent || options.html,
+      attachments: options.attachments,
+    });
+  }
+
+  return await dispatch({
+    from: buildHrFromAddress(user.fullName),
+    to: options.to,
+    replyTo: hrEmail,
+    subject: options.subject,
+    html: options.htmlContent || options.html,
+    attachments: options.attachments,
+    logLabel: 'RESEND HR EMAIL',
+  });
+}
+
+/**
+ * Platform mail with no HR attribution (OTPs, account notices).
+ * Deliberately carries no Reply-To.
+ */
+async function sendSystemMail(options = {}) {
+  return await dispatch({
+    from: getSystemFromAddress(),
+    to: options.to,
+    subject: options.subject,
+    html: options.htmlContent || options.html,
+    attachments: options.attachments,
+    logLabel: 'RESEND SYSTEM EMAIL',
+  });
+}
+
+/**
+ * Document email sender used by the documents route (offer / joining letters).
  */
 async function sendDocumentEmail({ user, to, subject, htmlContent, attachment }) {
   const attachments = [];
   if (attachment && attachment.content && attachment.filename) {
+    // attachment.content already arrives Base64-encoded from the builder.
     attachments.push({
       filename: attachment.filename,
-      content: Buffer.from(attachment.content, 'base64'),
+      content: attachment.content,
       contentType: attachment.contentType || 'application/octet-stream',
     });
   }
